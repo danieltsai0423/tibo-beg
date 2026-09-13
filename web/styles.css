@@ -954,6 +954,21 @@ main,
   color: var(--text);
 }
 
+.credit {
+  margin: 16px 0 0;
+  padding-top: 12px;
+  border-top: 1px dashed color-mix(in srgb, var(--text) 25%, transparent);
+  max-width: 68ch;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.credit a {
+  font-weight: 600;
+  color: var(--text);
+}
+
 /* ----------------------------------------------------------------- toasts */
 
 .toasts {

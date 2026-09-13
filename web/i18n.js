@@ -93,8 +93,11 @@ export const STRINGS = {
       '<strong>Google sign-in</strong> reads only your name and profile picture. Your email address is never requested, and no token of yours is stored.',
       '<strong>Clicks are rate-limited</strong> to 8/sec sustained per account. Autoclickers gain nothing past that, so the board measures stamina, not scripting.',
       'A screenshot of this board is posted to X once a day, mentioning <a href="https://x.com/thsottiaux" rel="noopener">@thsottiaux</a>. He can mute us.',
-      'Not affiliated with OpenAI, Google, or <a href="https://codex-resets.com" rel="noopener">codex-resets.com</a> — whose beg button started this.',
+      'Not affiliated with OpenAI or Google. Names and marks belong to their owners.',
     ],
+
+    credit:
+      'With thanks to <a href="https://codex-resets.com" rel="noopener">codex-resets.com</a> — the original beg button, and the only reason this page exists. Go press theirs too. Unaffiliated, just admiring.',
 
     toastSignInFailed: 'Sign-in failed: {error}',
     err_google_not_configured: 'Google sign-in is not switched on yet — the leaderboard below is live though.',
@@ -167,8 +170,11 @@ export const STRINGS = {
       '<strong>Google 登入</strong>只會讀你的名稱與頭像。<strong>不會要你的 email</strong>，也不會保存你的任何 token。',
       '<strong>點擊有速率上限</strong>，每個帳號每秒 8 次。連點器超過這條線也拿不到分，所以這裡比的是耐力不是腳本。',
       '這個排行榜每天會截圖發到 X 一次，並 tag <a href="https://x.com/thsottiaux" rel="noopener">@thsottiaux</a>。他可以把我們靜音。',
-      '與 OpenAI、Google 或 <a href="https://codex-resets.com" rel="noopener">codex-resets.com</a> 均無關聯 —— 後者的 beg 按鈕是這一切的起點。',
+      '與 OpenAI、Google 均無關聯。各項名稱與商標歸其所有者。',
     ],
+
+    credit:
+      '向 <a href="https://codex-resets.com" rel="noopener">codex-resets.com</a> 致敬 —— 最初的那顆 beg 按鈕，也是這一頁存在的唯一理由。記得也去按按他們的。沒有任何關聯，純粹欣賞。',
 
     toastSignInFailed: '登入失敗：{error}',
     err_google_not_configured: 'Google 登入還沒開通 —— 但下面的排行榜已經是即時的了。',
@@ -239,8 +245,11 @@ export const STRINGS = {
       '<strong>Google 登录</strong>只会读你的名称与头像。<strong>不会要你的 email</strong>，也不会保存你的任何 token。',
       '<strong>点击有速率上限</strong>，每个账号每秒 8 次。连点器超过这条线也拿不到分，所以这里比的是耐力不是脚本。',
       '这个排行榜每天会截图发到 X 一次，并 tag <a href="https://x.com/thsottiaux" rel="noopener">@thsottiaux</a>。他可以把我们静音。',
-      '与 OpenAI、Google 或 <a href="https://codex-resets.com" rel="noopener">codex-resets.com</a> 均无关联 —— 后者的 beg 按钮是这一切的起点。',
+      '与 OpenAI、Google 均无关联。各项名称与商标归其所有者。',
     ],
+
+    credit:
+      '向 <a href="https://codex-resets.com" rel="noopener">codex-resets.com</a> 致敬 —— 最初的那颗 beg 按钮，也是这一页存在的唯一理由。记得也去按按他们的。没有任何关联，纯粹欣赏。',
 
     toastSignInFailed: '登录失败：{error}',
     err_google_not_configured: 'Google 登录还没开通 —— 但下面的排行榜已经是实时的了。',
