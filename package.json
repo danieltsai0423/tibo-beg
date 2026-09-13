@@ -1,0 +1,16 @@
+{
+  "name": "tibo-beg",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "python -m http.server 4173 -d web",
+    "shot": "node scripts/shot.mjs",
+    "post": "node scripts/post-to-x.mjs",
+    "daily:dry": "node scripts/shot.mjs --url http://localhost:4173/board.html --out out/board.png && node scripts/post-to-x.mjs --image out/board.png --dry-run",
+    "smoke": "node scripts/smoke.mjs",
+    "lang": "node scripts/lang-check.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0"
+  }
+}

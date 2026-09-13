@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Beg Board — who begs hardest for a Codex reset</title>
+    <meta
+      name="description"
+      content="Sign in with Threads, hit the button, and find out who on earth begs hardest for a Codex limit reset."
+    />
+    <meta property="og:title" content="Beg Board" />
+    <meta property="og:description" content="A global leaderboard of people begging for a Codex reset." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%99%8F%3C/text%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <div class="grain" aria-hidden="true"></div>
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">🙏</span>
+        <div>
+          <h1 data-i18n="brand">Beg Board</h1>
+          <p class="tagline" data-i18n-html="tagline">
+            Unofficial. Fan-made. We beg <a href="https://x.com/thsottiaux" rel="noopener">@thsottiaux</a> for a Codex
+            reset, and we keep score.
+          </p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button class="chip" id="lang-toggle" type="button" data-i18n-aria="langToggle">
+          <span data-role="lang-face">中</span>
+        </button>
+        <button class="chip" id="theme-toggle" type="button" data-i18n-aria="themeToggle">
+          <span data-role="theme-icon">◐</span>
+        </button>
+        <div class="auth" data-role="auth"></div>
+      </div>
+    </header>
+
+    <main>
+      <!-- ------------------------------------------------------ the altar -->
+      <section class="altar" aria-labelledby="altar-title">
+        <div class="altar-head">
+          <h2 id="altar-title" data-i18n="altarTitle">Total begs this cycle</h2>
+          <span class="live" data-role="connection" data-state="connecting">connecting</span>
+        </div>
+
+        <p class="total odometer" data-role="total" aria-live="off">0</p>
+
+        <div class="pulse">
+          <div class="pulse-track"><span class="pulse-fill" data-role="pulse-fill"></span></div>
+          <p class="pulse-label" data-role="pulse-label"></p>
+        </div>
+
+        <div class="beg-zone">
+          <button class="beg" type="button" data-role="beg" aria-describedby="beg-help">
+            <span class="beg-emoji" data-role="beg-emoji" aria-hidden="true">🙏</span>
+            <span class="beg-label" data-i18n="begLabel">beg</span>
+            <span class="beg-count odometer" data-role="beg-count" aria-live="polite">0</span>
+          </button>
+          <div class="bursts" data-role="bursts" aria-hidden="true"></div>
+          <div class="combo" data-role="combo" hidden>
+            <span data-role="combo-label"></span>
+            <span class="combo-x" data-role="combo-count">x1</span>
+          </div>
+        </div>
+
+        <p class="help" id="beg-help" data-role="help"></p>
+      </section>
+
+      <!-- ------------------------------------------------------ leaderboard -->
+      <section class="board-section" aria-labelledby="board-title">
+        <div class="board-head">
+          <h2 id="board-title" data-i18n="boardTitle">Leaderboard</h2>
+          <p class="board-sub" data-role="board-sub"></p>
+        </div>
+
+        <ol class="podium" data-role="podium" data-i18n-aria="podiumAria"></ol>
+        <ol class="board" data-role="board" data-i18n-aria="boardAria"></ol>
+        <p class="board-empty" data-role="board-empty" data-i18n="boardEmpty">Nobody has begged yet. Be the first.</p>
+      </section>
+
+      <section class="notes">
+        <h2 data-i18n="notesTitle">How this works</h2>
+        <ul data-role="notes"></ul>
+      </section>
+    </main>
+
+    <div class="toasts" data-role="toasts" aria-live="polite"></div>
+
+    <script src="./config.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

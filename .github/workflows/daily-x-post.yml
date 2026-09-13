@@ -1,0 +1,54 @@
+name: Daily board post to X
+
+on:
+  schedule:
+    # 09:00 UTC = 17:00 Asia/Taipei. GitHub's scheduler is best-effort and can
+    # run late under load, so do not treat this as a precise clock.
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Render and print the caption, post nothing"
+        type: boolean
+        default: true
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+
+      - name: Render the board card
+        env:
+          BOARD_URL: ${{ vars.BOARD_URL }}
+          API_BASE: ${{ vars.API_BASE }}
+        run: node scripts/shot.mjs --out out/board.png
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: board-card
+          path: out/board.png
+
+      - name: Post to X
+        if: github.event_name == 'schedule' || inputs.dry_run == false
+        env:
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+          API_BASE: ${{ vars.API_BASE }}
+          MENTION: ${{ vars.MENTION || '@thsottiaux' }}
+        run: node scripts/post-to-x.mjs --image out/board.png
+
+      - name: Caption preview (dry run)
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run == true
+        env:
+          API_BASE: ${{ vars.API_BASE }}
+          MENTION: ${{ vars.MENTION || '@thsottiaux' }}
+        run: node scripts/post-to-x.mjs --image out/board.png --dry-run

@@ -1,0 +1,39 @@
+name: Deploy web/ to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", ".github/workflows/deploy-pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # config.js holds only public values, but keeping the Worker origin in a
+      # repo variable means the API can move without a code change.
+      - name: Inject API base
+        if: vars.API_BASE != ''
+        run: |
+          printf 'window.TIBO_BEG_CONFIG = { API_BASE: "%s" };\n' "${{ vars.API_BASE }}" > web/config.js
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+      - id: deployment
+        uses: actions/deploy-pages@v4

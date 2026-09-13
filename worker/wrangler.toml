@@ -1,0 +1,27 @@
+name = "tibo-beg-api"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+[vars]
+# Exact origins allowed to call the API and to be redirected back to after login.
+# The first entry is the fallback redirect target. No trailing slash.
+ALLOWED_ORIGINS = "https://YOUR-GITHUB-USER.github.io,http://localhost:4173"
+APP_URL = "https://YOUR-GITHUB-USER.github.io/tibo-beg/"
+ROOM_NAME = "global"
+
+[[durable_objects.bindings]]
+name = "BEG_ROOM"
+class_name = "BegRoom"
+
+[[migrations]]
+tag = "v1"
+# SQLite-backed classes are what the Workers free plan allows.
+new_sqlite_classes = ["BegRoom"]
+
+[observability]
+enabled = true
+
+# Secrets (never in this file):
+#   wrangler secret put THREADS_APP_ID
+#   wrangler secret put THREADS_APP_SECRET
+#   wrangler secret put SESSION_SECRET      # openssl rand -base64 48
