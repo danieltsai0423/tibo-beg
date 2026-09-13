@@ -117,10 +117,12 @@ function room(env) {
   return env.BEG_ROOM.get(env.BEG_ROOM.idFromName(env.ROOM_NAME || 'global'));
 }
 
+// Header only. A token accepted from the query string would be a token written
+// into access logs, referrers and proxy caches.
 async function bearer(req, env) {
   const header = req.headers.get('authorization') || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : new URL(req.url).searchParams.get('t');
-  return token ? verify(token, env.SESSION_SECRET) : null;
+  if (!header.startsWith('Bearer ')) return null;
+  return verify(header.slice(7), env.SESSION_SECRET);
 }
 
 // ---------------------------------------------------------------- oauth flow

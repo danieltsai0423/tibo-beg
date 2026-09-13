@@ -13,6 +13,7 @@ const BUCKET_REFILL = 8; // sustained begs/sec per user
 const RATE_WINDOW_MS = 5000; // window for the global begs/sec readout
 const NAME_MIN = 2;
 const NAME_MAX = 20;
+const RENAME_COOLDOWN_MS = 2000; // between renames that reach the uniqueness scan
 
 // Impersonating the man we are all begging is the one abuse worth hard-coding
 // against. Everything else is handled by uniqueness.
@@ -21,6 +22,17 @@ const RESERVED = new Set(['thsottiaux', 'tibosottiaux', 'tibo', 'begboard', 'adm
 // Invisible and direction-flipping characters: they let a name render as
 // something other than what it is, so they never survive normalisation.
 const INVISIBLE = /[\u0000-\u001F\u007F\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180B-\u180E\u200B-\u200F\u202A-\u202E\u2060-\u206F\u3164\uFE00-\uFE0F\uFEFF\uFFA0]/g;
+
+// A display name is shown on a public board and pasted verbatim into a post
+// sent from the operator's own X account. Anything that X would turn into a
+// mention, a hashtag, a cashtag or a link is therefore refused outright: those
+// characters let one user speak through someone else's account.
+const LOOKS_LIKE_HANDLE = /[@#$]/;
+// Any unspaced "word.word" is treated as a domain. A TLD allow-list is the
+// wrong shape here: it has to be kept current, and the cost of being wrong is a
+// link posted from someone else's account. A false positive costs a user one
+// retry on a 20-character nickname.
+const LOOKS_LIKE_LINK = /(?:https?:\/\/|[\p{L}\p{N}_-]+\.[\p{L}]{2,})/iu;
 
 /** Returns a cleaned name, or null when it cannot be made acceptable. */
 function normalizeName(raw) {
@@ -34,6 +46,7 @@ function normalizeName(raw) {
   // them, not by UTF-16 units.
   const length = [...cleaned].length;
   if (length < NAME_MIN || length > NAME_MAX) return null;
+  if (LOOKS_LIKE_HANDLE.test(cleaned) || LOOKS_LIKE_LINK.test(cleaned)) return null;
   return cleaned;
 }
 
@@ -203,7 +216,18 @@ export class BegRoom {
     }
   }
 
+  // A bucket that has refilled to capacity carries no information, so dropping
+  // it is free. Without this the map keeps one entry per user seen, forever.
+  pruneBuckets() {
+    const now = Date.now();
+    for (const [uid, bucket] of this.buckets) {
+      const refilled = bucket.tokens + ((now - bucket.last) / 1000) * BUCKET_REFILL;
+      if (refilled >= BUCKET_CAPACITY) this.buckets.delete(uid);
+    }
+  }
+
   async alarm() {
+    this.pruneBuckets();
     await this.persist();
     if (this.dirty.size > 0 || this.sockets.size > 0) await this.state.storage.setAlarm(Date.now() + PERSIST_MS);
   }
@@ -272,11 +296,28 @@ export class BegRoom {
         return Response.json({ display_name: null, name: displayName(user) });
       }
 
+      // Cheap checks first, and they cost the caller nothing: a typo or a
+      // hostile string is rejected before anything expensive runs, so it
+      // neither burns the cooldown nor amplifies into work.
+      const raw = String(body.name).normalize('NFKC').replace(INVISIBLE, '').replace(/\s+/g, ' ').trim();
+      if (LOOKS_LIKE_HANDLE.test(raw) || LOOKS_LIKE_LINK.test(raw)) {
+        return Response.json({ error: 'name_lookalike' }, { status: 400 });
+      }
       const name = normalizeName(body.name);
       if (!name) return Response.json({ error: 'name_invalid', min: NAME_MIN, max: NAME_MAX }, { status: 400 });
 
       const key = nameKey(name);
       if (RESERVED.has(key)) return Response.json({ error: 'name_reserved' }, { status: 409 });
+
+      // Past this point the request scans every user, so it is rate limited.
+      // The clock lives on the user record, which is already persisted and
+      // already bounded -- no extra map to grow or prune. It is deliberately
+      // separate from the beg budget: renaming should not cost you begs.
+      const now = Date.now();
+      if (now - (user.rn ?? 0) < RENAME_COOLDOWN_MS) {
+        return Response.json({ error: 'name_too_often' }, { status: 429 });
+      }
+      user.rn = now;
       for (const [otherId, other] of this.users) {
         if (otherId !== uid && nameKey(displayName(other) || '') === key) {
           return Response.json({ error: 'name_taken' }, { status: 409 });

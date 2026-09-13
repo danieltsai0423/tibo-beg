@@ -627,10 +627,11 @@ function connect() {
   setConnection('connecting');
 
   const base = API.replace(/^http/, 'ws');
-  const query = state.token ? `?t=${encodeURIComponent(state.token)}` : '';
+  // No token on this URL. The live feed is public board data, the server never
+  // read it, and a credential in a URL ends up in logs and proxies for nothing.
   let socket;
   try {
-    socket = new WebSocket(`${base}/api/live${query}`);
+    socket = new WebSocket(`${base}/api/live`);
   } catch {
     scheduleReconnect();
     return;

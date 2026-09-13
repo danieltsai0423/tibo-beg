@@ -126,6 +126,11 @@ const nameReq = async (token, name) => {
   return { status: r.status, body: await r.json().catch(() => null) };
 };
 
+// Renaming is rate limited per user, so cases that reach the uniqueness scan
+// each get their own identity. Tests that share one would only be measuring
+// the cooldown.
+const namer = (label) => mint(`n-${label}-${run}`, `user-${label}`, 'TW');
+
 const pick = `Rate Limited ${run}`;
 let r = await nameReq(alice, pick);
 check('a display name can be set', r.status === 200 && r.body.display_name === pick, JSON.stringify(r.body));
@@ -137,38 +142,65 @@ await beg(alice, 1);
 r = await fetch(`${BASE}/api/me`, { headers: { authorization: `Bearer ${alice}` } }).then((x) => x.json());
 check('begging does not clobber the chosen name', r.username === pick, JSON.stringify(r));
 
-r = await nameReq(bob, pick.toLowerCase().replace(/\s/g, ''));
+r = await nameReq(namer('dup'), pick.toLowerCase().replace(/\s/g, ''));
 check('uniqueness ignores case and spacing', r.status === 409 && r.body.error === 'name_taken', JSON.stringify(r.body));
 
-r = await nameReq(bob, 'thsottiaux');
+r = await nameReq(namer('res'), 'thsottiaux');
 check('impersonating Tibo is refused', r.status === 409 && r.body.error === 'name_reserved', JSON.stringify(r.body));
 
-r = await nameReq(bob, 'x');
+// Cheap refusals: rejected before anything expensive runs, so they can share
+// one identity and must not consume its cooldown.
+const cheap = namer('cheap');
+r = await nameReq(cheap, 'x');
 check('too-short name is refused', r.status === 400 && r.body.error === 'name_invalid', JSON.stringify(r.body));
 
-r = await nameReq(bob, 'a'.repeat(21));
+r = await nameReq(cheap, 'a'.repeat(21));
 check('too-long name is refused', r.status === 400 && r.body.error === 'name_invalid', JSON.stringify(r.body));
+
+// A display name is pasted into a post sent from the operator's own X account,
+// so it must never be able to look like a handle, a tag or a link.
+for (const hostile of ['@elonmusk', '#FreeCrypto', '$TSLA', 'evil.example/win', 'http://evil.example', 'beg-board.com']) {
+  const res = await nameReq(cheap, hostile);
+  check(
+    `hostile name refused: ${hostile}`,
+    res.status === 400 && res.body.error === 'name_lookalike',
+    JSON.stringify(res.body),
+  );
+}
+
+r = await nameReq(cheap, `Still Fine ${run}`);
+check('cheap refusals do not burn the cooldown', r.status === 200, JSON.stringify(r.body));
 
 // A zero-width space is the classic way to smuggle a look-alike name past a
 // uniqueness check. Stripping happens first, so it collides and is refused --
 // the two defences only work because they run in that order.
-r = await nameReq(bob, `Rate​ Limited ${run}`);
+r = await nameReq(namer('zw1'), `Rate​ Limited ${run}`);
 check(
   'invisible characters cannot smuggle a duplicate name through',
   r.status === 409 && r.body.error === 'name_taken',
   JSON.stringify(r.body),
 );
 
-// The same stripping applies to a name that is not a duplicate: accepted, but
-// stored clean rather than verbatim.
-r = await nameReq(bob, `Yak​Shaver ${run}`);
+r = await nameReq(namer('zw2'), `Yak​Shaver ${run}`);
 check(
   'invisible characters are stripped from an accepted name',
   r.status === 200 && !/​/.test(r.body.display_name || '') && r.body.display_name === `YakShaver ${run}`,
   JSON.stringify(r.body),
 );
 
-r = await nameReq(bob, '');
+// Renaming twice in a row reaches the scan twice, so the second is throttled.
+const cool = namer('cool');
+await nameReq(cool, `Cooldown A ${run}`);
+r = await nameReq(cool, `Cooldown B ${run}`);
+check('back-to-back renames are throttled', r.status === 429 && r.body.error === 'name_too_often', JSON.stringify(r.body));
+
+await new Promise((resolve) => setTimeout(resolve, 2200));
+r = await nameReq(cool, `Cooldown B ${run}`);
+check('renaming works again after the cooldown', r.status === 200, JSON.stringify(r.body));
+
+const reset = namer('reset');
+await nameReq(reset, `Temporary ${run}`);
+r = await nameReq(reset, '');
 check('an empty name restores the provider name', r.status === 200 && r.body.display_name === null, JSON.stringify(r.body));
 
 r = await fetch(`${BASE}/api/name`, { method: 'POST', body: JSON.stringify({ name: 'nope' }) });

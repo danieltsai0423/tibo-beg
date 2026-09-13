@@ -81,6 +81,8 @@ export const STRINGS = {
     err_name_invalid: 'That name needs to be 2–20 characters.',
     err_name_reserved: 'That name is reserved. Pick another one.',
     err_name_taken: 'Someone is already begging under that name.',
+    err_name_lookalike: 'No @, #, $ or web addresses — names like that get posted to X and would speak for someone else.',
+    err_name_too_often: 'Too many name changes. Give it a moment.',
 
     boardTitle: 'Leaderboard',
     boardLabel: '{n} beggars · updates live',
@@ -160,6 +162,8 @@ export const STRINGS = {
     err_name_invalid: '名稱要 2–20 個字。',
     err_name_reserved: '這個名稱被保留了，換一個吧。',
     err_name_taken: '已經有人用這個名字在跪求了。',
+    err_name_lookalike: '不能有 @、#、$ 或網址 —— 這個名字會被發到 X，那樣等於冒用別人的身分。',
+    err_name_too_often: '改太頻繁了，等一下再試。',
 
     boardTitle: '排行榜',
     boardLabel: '{n} 人跪求中 · 即時更新',
@@ -237,6 +241,8 @@ export const STRINGS = {
     err_name_invalid: '名称要 2–20 个字。',
     err_name_reserved: '这个名称被保留了，换一个吧。',
     err_name_taken: '已经有人用这个名字在跪求了。',
+    err_name_lookalike: '不能有 @、#、$ 或网址 —— 这个名字会被发到 X，那样等于冒用别人的身分。',
+    err_name_too_often: '改太频繁了，等一下再试。',
 
     boardTitle: '排行榜',
     boardLabel: '{n} 人跪求中 · 实时更新',
