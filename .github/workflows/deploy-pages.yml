@@ -31,6 +31,36 @@ jobs:
         run: |
           printf 'window.TIBO_BEG_CONFIG = { API_BASE: "%s" };\n' "${{ vars.API_BASE }}" > web/config.js
 
+      # Stamp the commit onto every asset URL so a deploy swaps the whole set at
+      # once. GitHub Pages sends `Cache-Control: max-age=600` on everything and
+      # does not allow custom headers, so without this each file carries its own
+      # independent ten-minute cache and a browser can end up running a new
+      # app.js against a cached i18n.js. That mixed state does not throw -- it
+      # shows up as strings quietly rendering blank, which is the kind of bug
+      # nobody reports.
+      #
+      # It does NOT make a deploy instant: index.html has the same ten-minute
+      # cache, and until it revalidates the browser never sees the new query
+      # strings. What this buys is that when the HTML does refresh, everything
+      # it points at refreshes with it.
+      #
+      # Only CI rewrites these; the files in the repo stay plain, so the local
+      # server and the Playwright suites load them unversioned.
+      - name: Version the assets
+        run: |
+          v="${GITHUB_SHA::8}"
+          # Matched by shape, not by filename, so an asset added later is
+          # stamped without anyone remembering this step exists. Either quote
+          # style, because the one that gets missed is the one nobody checks.
+          sed -i -E "s#(src|href)=([\"'])\./([^\"'?]+)\2#\1=\2./\3?v=$v\2#g" web/*.html
+          # app.js imports i18n.js itself, so rewriting the HTML is not enough.
+          sed -i -E "s#from ([\"'])\./([^\"'?]+)\1#from \1./\2?v=$v\1#g" web/*.js
+          # The invariant, checked rather than assumed: nothing local is left
+          # unstamped. A failed deploy beats one file quietly serving a stale
+          # copy for ten minutes after every release.
+          ! grep -rnE "(src|href)=[\"']\./[^\"'?]*[\"']" web/*.html
+          ! grep -rnE "from [\"']\./[^\"'?]*[\"']" web/*.js
+
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
