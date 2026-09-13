@@ -280,6 +280,23 @@ check(
   `me=${mine.lifetime} board=${aliceBoard.lifetime}`,
 );
 
+// 9e. The page shows a cycle total and a 24-hour ranking side by side, so the
+// board has to ship the number its own rows add up to. Without it the two
+// figures on screen look like they disagree -- with a single beggar, obviously
+// so.
+const full = await fetch(`${BASE}/api/leaderboard?limit=100`).then((x) => x.json());
+const rowSum = full.board.reduce((sum, e) => sum + e.count, 0);
+check(
+  'window_total matches the sum of the rows',
+  full.window_total === rowSum,
+  `window_total=${full.window_total} rows=${rowSum}`,
+);
+check(
+  'the cycle total is the sum of every lifetime tally',
+  full.total === full.board.reduce((sum, e) => sum + e.lifetime, 0) && full.total >= full.window_total,
+  `total=${full.total} window=${full.window_total}`,
+);
+
 // 10. final board
 res = await fetch(`${BASE}/api/leaderboard?limit=5`);
 board = await res.json();

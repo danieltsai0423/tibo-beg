@@ -85,7 +85,7 @@ export const STRINGS = {
     err_name_too_often: 'Too many name changes. Give it a moment.',
 
     boardTitle: 'Leaderboard',
-    boardLabel: '{n} beggars · last 24 h, live',
+    boardLabel: '{n} begs in the last 24 h · {m} beggars',
     podiumAria: 'Top three beggars',
     boardAria: 'Ranks four and below',
     boardEmpty: 'Nobody has begged yet. Be the first.',
@@ -166,7 +166,7 @@ export const STRINGS = {
     err_name_too_often: '改太頻繁了，等一下再試。',
 
     boardTitle: '排行榜',
-    boardLabel: '{n} 人跪求中 · 近 24 小時，即時更新',
+    boardLabel: '近 24 小時 {n} 次 · {m} 人跪求中',
     podiumAria: '跪求前三名',
     boardAria: '第四名以後',
     boardEmpty: '還沒有人跪求。當第一個。',
@@ -245,7 +245,7 @@ export const STRINGS = {
     err_name_too_often: '改太频繁了，等一下再试。',
 
     boardTitle: '排行榜',
-    boardLabel: '{n} 人跪求中 · 近 24 小时，实时更新',
+    boardLabel: '近 24 小时 {n} 次 · {m} 人跪求中',
     podiumAria: '跪求前三名',
     boardAria: '第四名以后',
     boardEmpty: '还没有人跪求。当第一个。',
@@ -357,20 +357,28 @@ function ensureCjkFont(family) {
   document.head.appendChild(link);
 }
 
-function fill(node, template, value) {
-  // Rebuild rather than string-replace so the number keeps its own element and
-  // the two languages can put it in different places.
-  const [before, after] = String(template).split('{n}');
+function fill(node, template, values) {
+  // Rebuild rather than string-replace so each number keeps its own element and
+  // the languages can put them in different places. A sentence may carry more
+  // than one -- "{n} begs in the last 24 h · {m} beggars" is one string, not two
+  // to be concatenated, because the order of the two halves is not the same in
+  // every language.
   node.textContent = '';
-  if (before) node.appendChild(document.createTextNode(before));
-  const strong = document.createElement('strong');
-  strong.textContent = value;
-  node.appendChild(strong);
-  if (after) node.appendChild(document.createTextNode(after));
+  for (const part of String(template).split(/(\{[a-z]\})/)) {
+    if (!part) continue;
+    const name = /^\{([a-z])\}$/.exec(part)?.[1];
+    if (name && name in values) {
+      const strong = document.createElement('strong');
+      strong.textContent = values[name];
+      node.appendChild(strong);
+    } else {
+      node.appendChild(document.createTextNode(part));
+    }
+  }
 }
 
 export function fillCount(node, key, value) {
-  fill(node, t(key), value);
+  fill(node, t(key), value !== null && typeof value === 'object' ? value : { n: value });
 }
 
 function paint() {

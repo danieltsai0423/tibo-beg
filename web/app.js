@@ -74,6 +74,7 @@ const state = {
   token: null,
   me: null,
   total: 0,
+  windowTotal: 0,
   myCount: 0,
   myRank: null,
   bps: 0,
@@ -453,7 +454,13 @@ function bumpCombo() {
 function renderBoard() {
   const board = state.board;
   el.boardEmpty.hidden = board.length > 0;
-  fillCount(el.boardSub, 'boardLabel', nf.format(state.beggars || board.length));
+  // The rows are ranked on the last 24 hours while the big counter above is the
+  // running total for the cycle, so this line carries the number the rows
+  // actually add up to. Without it the two figures look like they disagree.
+  fillCount(el.boardSub, 'boardLabel', {
+    n: nf.format(state.windowTotal || board.reduce((sum, entry) => sum + entry.count, 0)),
+    m: nf.format(state.beggars || board.length),
+  });
 
   el.podium.textContent = '';
   for (const entry of board.slice(0, 3)) {
@@ -571,6 +578,7 @@ function applySnapshot(data) {
   }
 
   if (typeof data.total === 'number') state.total = Math.max(state.total, data.total);
+  if (typeof data.window_total === 'number') state.windowTotal = data.window_total;
   if (typeof data.bps === 'number') state.bps = data.bps;
   if (typeof data.beggars === 'number') state.beggars = data.beggars;
   if (Array.isArray(data.board)) state.board = data.board;
@@ -718,7 +726,13 @@ async function flush() {
       return;
     }
     if (!res.ok || !data) return;
-    state.total = Math.max(state.total, data.total);
+    // Assigned, not raised. Every click paints optimistically but the server
+    // refuses anything past 8 a second, so during a storm the local total runs
+    // ahead -- and `Math.max` would make that overshoot permanent, leaving the
+    // counter above the real number for the rest of the session. Broadcast
+    // frames still use `Math.max`, because those can arrive stale; this is the
+    // reply to our own write, so it is the number to trust.
+    state.total = data.total;
     state.myCount = data.count;
     odometer(el.total, state.total);
     odometer(el.begCount, state.myCount);
@@ -799,8 +813,12 @@ const demo = {
 
 function demoRender() {
   const sorted = [...demo.users].sort((a, b) => b.count - a.count);
+  const shown = sorted.reduce((sum, u) => sum + u.count, 0);
   applySnapshot({
-    total: sorted.reduce((sum, u) => sum + u.count, 0),
+    // Demo mode has no history, so the cycle total and the 24-hour subtotal are
+    // the same number -- which is also what a real board looks like on day one.
+    total: shown,
+    window_total: shown,
     bps: Math.round((3 + Math.random() * 22) * 10) / 10,
     beggars: sorted.length,
     board: sorted.map((u, i) => ({ rank: i + 1, ...u })),

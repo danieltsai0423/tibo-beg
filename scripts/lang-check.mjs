@@ -61,6 +61,22 @@ const htmlLang = (page) => page.evaluate(() => document.documentElement.lang);
   const help = await page.textContent('[data-role="help"]');
   check('zh-TW browser -> zh-Hant', lang === 'zh-Hant', `lang=${lang}`);
   check('zh-Hant strings render', /登入/.test(help), help);
+
+  // A sentence carrying two numbers. The board sub-line is the only place that
+  // reconciles the cycle total above with the 24-hour ranking below, and the
+  // two figures sit in a different order in each language -- so it is one
+  // template with two slots, not two strings concatenated. Each number keeps
+  // its own <strong>.
+  await page.waitForFunction(() => document.querySelector('[data-role="board-sub"]').textContent.length > 0);
+  const sub = await page.evaluate(() => {
+    const node = document.querySelector('[data-role="board-sub"]');
+    return { text: node.textContent, strongs: node.querySelectorAll('strong').length };
+  });
+  check(
+    'a two-number sentence fills both slots',
+    /^近 24 小時 [\d,]+ 次 · [\d,]+ 人跪求中$/.test(sub.text) && sub.strongs === 2,
+    `${JSON.stringify(sub.text)} strongs=${sub.strongs}`,
+  );
   await context.close();
 }
 

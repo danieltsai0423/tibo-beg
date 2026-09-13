@@ -216,6 +216,16 @@ export class BegRoom {
       }));
   }
 
+  // The number the board's rows add up to. Without it the page shows a lifetime
+  // total next to a 24-hour ranking and nothing on screen explains the gap --
+  // with a single beggar it just reads as a bug. Reuses the cached ranking, so
+  // the scores are already computed.
+  windowTotal() {
+    let sum = 0;
+    for (const entry of this.ranking()) sum += entry[2];
+    return sum;
+  }
+
   firstBeggar() {
     if (!this.first) return null;
     const user = this.users.get(this.first.uid);
@@ -266,6 +276,7 @@ export class BegRoom {
     const frame = JSON.stringify({
       type: 'tick',
       total: this.total,
+      window_total: this.windowTotal(),
       bps: this.bps(),
       board: this.board(),
       events: this.pending.slice(-24),
@@ -370,6 +381,7 @@ export class BegRoom {
         JSON.stringify({
           type: 'hello',
           total: this.total,
+          window_total: this.windowTotal(),
           bps: this.bps(),
           board: this.board(),
           first_beggar: this.firstBeggar(),
@@ -458,6 +470,7 @@ export class BegRoom {
       const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit')) || BOARD_SIZE));
       return Response.json({
         total: this.total,
+        window_total: this.windowTotal(),
         bps: this.bps(),
         beggars: this.users.size,
         board: this.board(limit),
