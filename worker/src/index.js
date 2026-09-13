@@ -101,7 +101,9 @@ function safeRedirect(env, candidate) {
   } catch {
     /* fall through to the default below */
   }
-  return allow[0] || String(env.APP_URL || '');
+  // APP_URL first: on a project site the allowed origin is the bare host, and
+  // landing a failed sign-in there is a 404, not the app.
+  return String(env.APP_URL || '') || allow[0] || '';
 }
 
 function room(env) {

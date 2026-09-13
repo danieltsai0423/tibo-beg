@@ -3,10 +3,11 @@ main = "src/index.js"
 compatibility_date = "2026-09-01"
 
 [vars]
-# Exact origins allowed to call the API and to be redirected back to after login.
-# The first entry is the fallback redirect target. No trailing slash.
-ALLOWED_ORIGINS = "https://YOUR-GITHUB-USER.github.io,http://localhost:4173"
-APP_URL = "https://YOUR-GITHUB-USER.github.io/tibo-beg/"
+# Exact origins allowed to call the API and to be redirected back to after
+# login. No trailing slash. A failed sign-in falls back to APP_URL, not to the
+# first origin -- on a project site the bare host is a 404.
+ALLOWED_ORIGINS = "https://danieltsai0423.github.io,http://localhost:4173"
+APP_URL = "https://danieltsai0423.github.io/tibo-beg/"
 ROOM_NAME = "global"
 
 [[durable_objects.bindings]]
