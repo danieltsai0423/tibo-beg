@@ -5,12 +5,26 @@
 // counter plus fan-out WebSockets without standing up a database.
 
 const BROADCAST_MS = 200; // coalesce bursts into one frame
-const PERSIST_MS = 10_000; // write-behind to storage
+// Write-behind interval. It is short because the room hibernates: an evicted
+// object loses whatever is still only in memory, and eviction follows a short
+// stretch of inactivity -- which is exactly when the last begs are sitting
+// unwritten. Keeping the window well inside that stretch bounds the loss. The
+// interval only costs anything while the room is busy, and a busy room is
+// never the one at risk of eviction.
+const PERSIST_MS = 3_000;
 const BOARD_SIZE = 15; // rows pushed over the wire
 const MAX_PER_REQUEST = 10; // client batches at 10, so anything above is a forgery
 const BUCKET_CAPACITY = 40; // burst allowance per user
 const BUCKET_REFILL = 8; // sustained begs/sec per user
 const RATE_WINDOW_MS = 5000; // window for the global begs/sec readout
+// The board ranks on the last 24 hours, not on lifetime begs. A leaderboard
+// that only ever accumulates is won permanently by whoever left an autoclicker
+// running longest, and once it is won nobody else has a reason to click. A
+// rolling window makes the rank something you have to keep, and gives the daily
+// post a different name to @ each day. Lifetime totals are still kept and still
+// shown -- they just do not decide the order.
+const WINDOW_HOURS = 24;
+const HOUR_MS = 3_600_000;
 const NAME_MIN = 2;
 const NAME_MAX = 20;
 const RENAME_COOLDOWN_MS = 2000; // between renames that reach the uniqueness scan
@@ -60,6 +74,52 @@ function displayName(user) {
   return user.dn || user.un;
 }
 
+// ------------------------------------------------------------ rolling window
+//
+// Each user carries 24 hourly buckets (`w`) plus the absolute hour of the most
+// recent one (`wh`). Storing counts per hour rather than one timestamp per beg
+// keeps a user's record a fixed 24 numbers no matter how hard they click, which
+// matters precisely because the people this exists to handle click a lot.
+
+export function hourIndex(now = Date.now()) {
+  return Math.floor(now / HOUR_MS);
+}
+
+/**
+ * Begs still inside the window, without mutating the record. Reads happen on
+ * every rank and every board row, so they must not dirty a user or the
+ * write-behind buffer would never drain.
+ */
+export function windowScore(user, hour) {
+  const w = user?.w;
+  if (!Array.isArray(w)) return 0;
+  const gap = hour - (user.wh ?? hour);
+  if (gap >= WINDOW_HOURS) return 0; // everything has aged out
+  let sum = 0;
+  // Buckets hold hours `wh` down to `wh - 23`; once `gap` hours have passed,
+  // the oldest `gap` of them are outside the window and are simply not read.
+  for (let i = 0; i < WINDOW_HOURS - Math.max(0, gap); i += 1) {
+    sum += w[(((user.wh - i) % WINDOW_HOURS) + WINDOW_HOURS) % WINDOW_HOURS] || 0;
+  }
+  return sum;
+}
+
+/** Credits `n` begs to the current hour, clearing whatever has aged out. */
+export function bumpWindow(user, hour, n) {
+  if (!Array.isArray(user.w)) {
+    user.w = new Array(WINDOW_HOURS).fill(0);
+    user.wh = hour;
+  }
+  const gap = hour - user.wh;
+  if (gap > 0) {
+    if (gap >= WINDOW_HOURS) user.w.fill(0);
+    else for (let i = 1; i <= gap; i += 1) user.w[(user.wh + i) % WINDOW_HOURS] = 0;
+    user.wh = hour;
+  }
+  user.w[((hour % WINDOW_HOURS) + WINDOW_HOURS) % WINDOW_HOURS] += n;
+  return user;
+}
+
 export class BegRoom {
   constructor(state, env) {
     this.state = state;
@@ -69,7 +129,6 @@ export class BegRoom {
     this.users = new Map();
     this.total = 0;
 
-    this.sockets = new Set();
     this.buckets = new Map(); // uid -> {tokens, last}
     this.dirty = new Set();
     this.pending = []; // burst events awaiting the next frame
@@ -78,6 +137,9 @@ export class BegRoom {
 
     this.sorted = [];
     this.sortDirty = false;
+    // A cached order also goes stale when the hour turns, because that is when
+    // begs fall out of the window -- not only when someone writes.
+    this.sortHour = -1;
 
     // Who begged first, ever. Written once and never overwritten -- the moment
     // is unrecoverable if it is not captured as it happens.
@@ -105,15 +167,19 @@ export class BegRoom {
   // -------------------------------------------------------------- accounting
 
   resort() {
-    this.sorted = [...this.users.entries()].sort((a, b) => b[1].n - a[1].n || a[0].localeCompare(b[0]));
+    const hour = hourIndex();
+    this.sorted = [...this.users.entries()]
+      .map(([uid, user]) => [uid, user, windowScore(user, hour)])
+      .sort((a, b) => b[2] - a[2] || a[0].localeCompare(b[0]));
     this.sortDirty = false;
+    this.sortHour = hour;
   }
 
   // Sorting is deferred to whoever actually needs an ordered list. Both callers
   // (the 200ms broadcast and /board) are rate-limited, so a click storm never
   // triggers more than a handful of sorts per second.
   ranking() {
-    if (this.sortDirty) this.resort();
+    if (this.sortDirty || this.sortHour !== hourIndex()) this.resort();
     return this.sorted;
   }
 
@@ -124,9 +190,12 @@ export class BegRoom {
   rankOf(uid) {
     const mine = this.users.get(uid);
     if (!mine) return null;
+    const hour = hourIndex();
+    const score = windowScore(mine, hour);
     let ahead = 0;
     for (const [id, user] of this.users) {
-      if (user.n > mine.n || (user.n === mine.n && id.localeCompare(uid) < 0)) ahead += 1;
+      const other = windowScore(user, hour);
+      if (other > score || (other === score && id.localeCompare(uid) < 0)) ahead += 1;
     }
     return ahead + 1;
   }
@@ -134,7 +203,17 @@ export class BegRoom {
   board(limit = BOARD_SIZE) {
     return this.ranking()
       .slice(0, limit)
-      .map(([uid, u], i) => ({ rank: i + 1, uid, username: displayName(u), avatar: u.av, country: u.cc, count: u.n }));
+      .map(([uid, u, score], i) => ({
+        rank: i + 1,
+        uid,
+        username: displayName(u),
+        avatar: u.av,
+        country: u.cc,
+        // `count` is what the row is ordered by, so it has to be the window
+        // score -- a board sorted by a number it does not show reads as broken.
+        count: score,
+        lifetime: u.n,
+      }));
   }
 
   firstBeggar() {
@@ -179,7 +258,8 @@ export class BegRoom {
   }
 
   flush() {
-    if (this.sockets.size === 0) {
+    const sockets = this.state.getWebSockets();
+    if (sockets.length === 0) {
       this.pending = [];
       return;
     }
@@ -191,11 +271,12 @@ export class BegRoom {
       events: this.pending.slice(-24),
     });
     this.pending = [];
-    for (const ws of [...this.sockets]) {
+    for (const ws of sockets) {
       try {
         ws.send(frame);
       } catch {
-        this.sockets.delete(ws);
+        // A socket that throws on send is already gone; the runtime will hand
+        // it to webSocketClose. There is no local set to prune any more.
       }
     }
   }
@@ -226,16 +307,49 @@ export class BegRoom {
     }
   }
 
+  // The alarm chain stops as soon as everything is written. It deliberately
+  // does NOT keep itself alive just because sockets are open: an alarm every
+  // few seconds would wake the room forever, which is the whole thing
+  // hibernation exists to avoid. Idle spectators cost nothing; only writes
+  // schedule work.
   async alarm() {
     this.pruneBuckets();
     await this.persist();
-    if (this.dirty.size > 0 || this.sockets.size > 0) await this.state.storage.setAlarm(Date.now() + PERSIST_MS);
+    if (this.dirty.size > 0) await this.state.storage.setAlarm(Date.now() + PERSIST_MS);
   }
 
   async armAlarm() {
     if ((await this.state.storage.getAlarm()) === null) {
       await this.state.storage.setAlarm(Date.now() + PERSIST_MS);
     }
+  }
+
+  // ---------------------------------------------------- hibernating sockets
+  //
+  // Clients never send anything -- begs go over HTTP so they can be
+  // authenticated and answered individually -- but a handler has to exist or
+  // an unexpected frame tears the connection down.
+
+  webSocketMessage(ws) {
+    try {
+      ws.send(JSON.stringify({ type: 'pong' }));
+    } catch {
+      // Nothing to clean up: the runtime owns the socket set.
+    }
+  }
+
+  webSocketClose(ws, code, reason, wasClean) {
+    try {
+      ws.close(code === 1006 ? 1000 : code, reason);
+    } catch {
+      // Already closed. `wasClean` is not acted on; there is no per-socket
+      // state to reconcile.
+      void wasClean;
+    }
+  }
+
+  webSocketError() {
+    // The runtime drops the socket for us.
   }
 
   // -------------------------------------------------------------- routes
@@ -246,10 +360,12 @@ export class BegRoom {
     if (url.pathname === '/ws') {
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair);
-      server.accept();
-      this.sockets.add(server);
-      server.addEventListener('close', () => this.sockets.delete(server));
-      server.addEventListener('error', () => this.sockets.delete(server));
+      // Hibernation, not `server.accept()`. With a plain accept, one open
+      // socket pins the object in memory and bills duration for as long as it
+      // stays open -- so a single browser tab left running overnight keeps the
+      // whole room resident. Handing the socket to the runtime lets the room be
+      // evicted between begs while the connection survives.
+      this.state.acceptWebSocket(server);
       server.send(
         JSON.stringify({
           type: 'hello',
@@ -260,7 +376,8 @@ export class BegRoom {
           events: [],
         }),
       );
-      await this.armAlarm();
+      // No alarm here on purpose. Connecting is not a write, and arming the
+      // chain for a spectator would wake the room for nothing.
       return new Response(null, { status: 101, webSocket: client });
     }
 
@@ -270,7 +387,10 @@ export class BegRoom {
       return Response.json({
         display_name: user?.dn || null,
         provider_name: user?.un || null,
-        count: user?.n ?? 0,
+        // Same number the board shows, or the button's counter and the row
+        // disagree about the user's own score.
+        count: user ? windowScore(user, hourIndex()) : 0,
+        lifetime: user?.n ?? 0,
         rank: user ? this.rankOf(uid) : null,
       });
     }
@@ -365,7 +485,8 @@ export class BegRoom {
         // Only the id and the timestamp are frozen; the name is resolved at read
         // time so a later rename is reflected rather than stale.
         if (!this.first) this.first = { uid, at: Date.now() };
-        user.n += credited;
+        user.n += credited; // lifetime, never decays
+        bumpWindow(user, hourIndex(), credited); // what the rank is made of
         this.total += credited;
         this.recent.push([Date.now(), credited]);
         this.pending.push({
@@ -385,7 +506,8 @@ export class BegRoom {
 
       return Response.json({
         total: this.total,
-        count: user.n,
+        count: windowScore(user, hourIndex()),
+        lifetime: user.n,
         rank: this.rankOf(uid),
         credited,
         throttled: want - credited,

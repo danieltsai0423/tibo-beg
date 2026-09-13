@@ -10,6 +10,9 @@
 // It does not cover the Threads OAuth exchange -- that needs a real app and a
 // human at the consent screen.
 import { createHmac } from 'node:crypto';
+// The rolling-window arithmetic is pure, so it is tested directly rather than
+// through the API: expiry cannot be observed over HTTP without waiting an hour.
+import { bumpWindow, windowScore } from '../worker/src/room.js';
 
 const BASE = 'http://127.0.0.1:8787';
 const SECRET = 'dev-secret-not-for-production';
@@ -28,6 +31,44 @@ const check = (name, ok, detail) => {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  ${detail}` : ''}`);
   if (!ok) fails.push(name);
 };
+
+// 0. rolling window -- no server needed.
+//
+// These are the cases that decide whether an overnight autoclicker can hold
+// first place forever, which is the only reason the window exists.
+const H = 1_000_000; // an arbitrary absolute hour
+
+let u = bumpWindow({}, H, 5);
+check('window credits the current hour', windowScore(u, H) === 5, String(windowScore(u, H)));
+
+bumpWindow(u, H + 1, 7);
+check('window sums across hours', windowScore(u, H + 1) === 12, String(windowScore(u, H + 1)));
+
+// The window is the 24 hours ending now, so at H+23 both buckets are still in.
+check('a beg 23 h old still counts', windowScore(u, H + 23) === 12, String(windowScore(u, H + 23)));
+check('the oldest hour drops out at 24 h', windowScore(u, H + 24) === 7, String(windowScore(u, H + 24)));
+check('everything ages out after 24 h idle', windowScore(u, H + 25) === 0, String(windowScore(u, H + 25)));
+
+// The buckets are a ring, so an hour that lands on a previously used slot must
+// clear it rather than add to it. Getting this wrong is invisible for a day and
+// then doubles someone's score.
+u = bumpWindow({}, H, 100);
+bumpWindow(u, H + 24, 3);
+check('a reused ring slot is cleared, not added to', windowScore(u, H + 24) === 3, String(windowScore(u, H + 24)));
+
+u = bumpWindow({}, H, 100);
+bumpWindow(u, H + 200, 4);
+check('a long gap clears the whole ring', windowScore(u, H + 200) === 4, String(windowScore(u, H + 200)));
+
+check('a user who never begged scores 0', windowScore({}, H) === 0);
+
+// Reading must never mutate: the board scores every user on every frame, and a
+// read that dirtied a record would keep the write-behind buffer from draining
+// -- which is also what keeps the room from hibernating.
+u = bumpWindow({}, H, 9);
+const before = JSON.stringify(u);
+windowScore(u, H + 30);
+check('scoring does not mutate the record', JSON.stringify(u) === before, `${before} -> ${JSON.stringify(u)}`);
 
 // 1. anonymous read
 let res = await fetch(`${BASE}/api/leaderboard`);
@@ -79,6 +120,9 @@ const beg = async (token, n) => {
 
 let out = await beg(alice, 5);
 check('beg credits 5', out.count === 5 && out.total === base0 + 5 && out.rank !== null, JSON.stringify(out));
+// A fresh user's window score and lifetime tally are the same number; they only
+// diverge once begs start ageing out, which no test can wait for.
+check('beg reports both window and lifetime', out.lifetime === 5 && out.count === out.lifetime, JSON.stringify(out));
 const aliceRank = out.rank;
 
 const bob = mint(`b-${run}`, 'bob', 'JP');
@@ -229,6 +273,11 @@ check(
   '/api/me carries the personal count and rank',
   mine.count === aliceBoard.count && mine.rank === aliceBoard.rank,
   `me=${mine.count}/${mine.rank} board=${aliceBoard.count}/${aliceBoard.rank}`,
+);
+check(
+  'board rows and /api/me both carry the lifetime tally',
+  typeof aliceBoard.lifetime === 'number' && mine.lifetime === aliceBoard.lifetime,
+  `me=${mine.lifetime} board=${aliceBoard.lifetime}`,
 );
 
 // 10. final board

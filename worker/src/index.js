@@ -231,6 +231,7 @@ export default {
         // Without these the button's personal counter restarts at 0 on reload
         // for anyone who is not in the top slice of the board.
         count: stored?.count ?? 0,
+        lifetime: stored?.lifetime ?? 0,
         rank: stored?.rank ?? null,
       });
     }

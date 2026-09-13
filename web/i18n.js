@@ -85,7 +85,7 @@ export const STRINGS = {
     err_name_too_often: 'Too many name changes. Give it a moment.',
 
     boardTitle: 'Leaderboard',
-    boardLabel: '{n} beggars · updates live',
+    boardLabel: '{n} beggars · last 24 h, live',
     podiumAria: 'Top three beggars',
     boardAria: 'Ranks four and below',
     boardEmpty: 'Nobody has begged yet. Be the first.',
@@ -166,7 +166,7 @@ export const STRINGS = {
     err_name_too_often: '改太頻繁了，等一下再試。',
 
     boardTitle: '排行榜',
-    boardLabel: '{n} 人跪求中 · 即時更新',
+    boardLabel: '{n} 人跪求中 · 近 24 小時，即時更新',
     podiumAria: '跪求前三名',
     boardAria: '第四名以後',
     boardEmpty: '還沒有人跪求。當第一個。',
@@ -245,7 +245,7 @@ export const STRINGS = {
     err_name_too_often: '改太频繁了，等一下再试。',
 
     boardTitle: '排行榜',
-    boardLabel: '{n} 人跪求中 · 实时更新',
+    boardLabel: '{n} 人跪求中 · 近 24 小时，实时更新',
     podiumAria: '跪求前三名',
     boardAria: '第四名以后',
     boardEmpty: '还没有人跪求。当第一个。',
