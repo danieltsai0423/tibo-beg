@@ -156,7 +156,10 @@ async function authCallback(req, env) {
 
   if (!state) return fail('bad_state');
   const code = url.searchParams.get('code');
-  if (!code) return fail(url.searchParams.get('error_description') || 'no_code');
+  // Google reports a cancelled consent as error=access_denied with no code.
+  // Passing the provider's own error through keeps "I changed my mind" from
+  // being reported to the user as a failure.
+  if (!code) return fail(url.searchParams.get('error') || 'no_code');
 
   const form = new URLSearchParams({
     client_id: env.GOOGLE_CLIENT_ID,

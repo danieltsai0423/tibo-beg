@@ -102,6 +102,7 @@ export const STRINGS = {
 
     toastSignInFailed: 'Sign-in failed: {error}',
     err_google_not_configured: 'Google sign-in is not switched on yet — the leaderboard below is live though.',
+    err_access_denied: 'Sign-in cancelled. No harm done.',
     toastPassed: '#{rank} — passed {user}',
     toastRank: 'You are now #{rank}',
     toastExpired: 'Session expired — sign in again',
@@ -180,6 +181,7 @@ export const STRINGS = {
 
     toastSignInFailed: '登入失敗：{error}',
     err_google_not_configured: 'Google 登入還沒開通 —— 但下面的排行榜已經是即時的了。',
+    err_access_denied: '已取消登入，沒事。',
     toastPassed: '第 {rank} 名 —— 超車 {user}',
     toastRank: '你現在是第 {rank} 名',
     toastExpired: '登入階段已過期，請重新登入',
@@ -256,6 +258,7 @@ export const STRINGS = {
 
     toastSignInFailed: '登录失败：{error}',
     err_google_not_configured: 'Google 登录还没开通 —— 但下面的排行榜已经是实时的了。',
+    err_access_denied: '已取消登录，没事。',
     toastPassed: '第 {rank} 名 —— 超越 {user}',
     toastRank: '你现在是第 {rank} 名',
     toastExpired: '登录状态已过期，请重新登录',
