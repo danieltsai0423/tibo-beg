@@ -1,6 +1,6 @@
 # Beg Board — agent notes
 
-Threads 登入 + 即時 beg 排行榜。靈感來源是 <https://codex-resets.com/> 的 beg 按鈕。
+Google 登入 + 即時 beg 排行榜。靈感來源是 <https://codex-resets.com/> 的 beg 按鈕。
 部署與設定看 [docs/DEPLOY.md](docs/DEPLOY.md)，那裡也有「為什麼不能純 GitHub Pages」的完整理由。
 
 ## 邊界
@@ -14,6 +14,12 @@ Threads 登入 + 即時 beg 排行榜。靈感來源是 <https://codex-resets.co
   要分 cycle（每次 Codex reset 重新計算）就換 `ROOM_NAME`，不要在同一個物件裡分桶。
 
 ## 容易踩的地方
+
+- **OAuth 只要 `openid profile`，不要 `email`。** 這兩個是 non-sensitive scope，
+  不需要 Google 審核即可 publish。一旦加了 sensitive scope 就要送審（數週），
+  而我們根本不需要 email —— 公開排行榜上也絕不能顯示它。
+- **`uid` 有 provider 前綴**（`google:<sub>`）。要加第二家登入時沿用這個慣例，
+  不同平台的 id 直接當 key 會有撞號風險。
 
 - **排序快取會讓 rank 變成 `null`。** `BegRoom` 的 `sorted` 是延遲重算的；`rankOf()`
   刻意不用它，改用 O(n) 直接數，因為前端的超車動畫吃這個數字，晚 200ms 就會閃錯名次。
@@ -48,5 +54,5 @@ npm run daily:dry                               # 截圖 + 印出貼文內容，
 npm run lang                                    # Playwright 跑語言判斷（含 geo fallback）
 ```
 
-`scripts/smoke.mjs` 不依賴起始狀態，可重複跑。它涵蓋不到 Threads OAuth
-（需要真的 app 與真人點同意），其餘路徑都有測。
+`scripts/smoke.mjs` 不依賴起始狀態，可重複跑。它涵蓋不到 Google OAuth
+（需要真的 client 與真人點同意），其餘路徑都有測。

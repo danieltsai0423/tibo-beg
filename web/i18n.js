@@ -38,7 +38,7 @@ export const STRINGS = {
     _font: null,
     docTitle: 'Beg Board — who begs hardest for a Codex reset',
     docDescription:
-      'Sign in with Threads, hit the button, and find out who on earth begs hardest for a Codex limit reset.',
+      'Sign in with Google, hit the button, and find out who on earth begs hardest for a Codex limit reset.',
 
     brand: 'Beg Board',
     tagline:
@@ -63,11 +63,11 @@ export const STRINGS = {
     comboFervent: 'fervent',
     comboUnhinged: 'unhinged',
 
-    helpSignedOut: 'Sign in with Threads to have your begs counted.',
+    helpSignedOut: 'Sign in with Google to have your begs counted.',
     helpLive: 'Rate-limited to 8 begs/sec. Past that the button still feels good but the score does not move.',
     helpDemo: 'Demo mode — nothing is sent anywhere. Point config.js at your Worker to go live.',
 
-    signIn: 'Sign in with Threads',
+    signIn: 'Sign in with Google',
     signOut: 'sign out',
 
     boardTitle: 'Leaderboard',
@@ -78,14 +78,14 @@ export const STRINGS = {
 
     notesTitle: 'How this works',
     notes: [
-      '<strong>Threads sign-in</strong> only reads your handle and avatar. No token of yours is stored.',
+      '<strong>Google sign-in</strong> reads only your name and profile picture. Your email address is never requested, and no token of yours is stored.',
       '<strong>Clicks are rate-limited</strong> to 8/sec sustained per account. Autoclickers gain nothing past that, so the board measures stamina, not scripting.',
       'A screenshot of this board is posted to X once a day, mentioning <a href="https://x.com/thsottiaux" rel="noopener">@thsottiaux</a>. He can mute us.',
-      'Not affiliated with OpenAI, Threads, or <a href="https://codex-resets.com" rel="noopener">codex-resets.com</a> — whose beg button started this.',
+      'Not affiliated with OpenAI, Google, or <a href="https://codex-resets.com" rel="noopener">codex-resets.com</a> — whose beg button started this.',
     ],
 
     toastSignInFailed: 'Sign-in failed: {error}',
-    err_threads_not_configured: 'Threads sign-in is not switched on yet — the leaderboard below is live though.',
+    err_google_not_configured: 'Google sign-in is not switched on yet — the leaderboard below is live though.',
     toastPassed: '#{rank} — passed @{user}',
     toastRank: 'You are now #{rank}',
     toastExpired: 'Session expired — sign in again',
@@ -98,7 +98,7 @@ export const STRINGS = {
     _locale: 'zh-Hant-TW',
     _font: 'Noto+Sans+TC',
     docTitle: 'Beg Board — 誰最會跪求 Codex reset',
-    docDescription: '用 Threads 登入、狂按按鈕，看看全世界誰最想要 Codex 額度重置。',
+    docDescription: '用 Google 登入、狂按按鈕，看看全世界誰最想要 Codex 額度重置。',
 
     // Product name, left untranslated the way brands usually are. Swap this for
     // 「跪求排行榜」if you would rather it read as Chinese.
@@ -125,11 +125,11 @@ export const STRINGS = {
     comboFervent: '狂熱',
     comboUnhinged: '走火入魔',
 
-    helpSignedOut: '用 Threads 登入，你的跪求才會被計分。',
+    helpSignedOut: '用 Google 登入，你的跪求才會被計分。',
     helpLive: '每秒最多計 8 次。超過的部分按起來一樣爽，但分數不會動。',
     helpDemo: '展示模式 —— 什麼都不會送出。把 config.js 指向你的 Worker 才會真的上線。',
 
-    signIn: '用 Threads 登入',
+    signIn: '用 Google 登入',
     signOut: '登出',
 
     boardTitle: '排行榜',
@@ -140,14 +140,14 @@ export const STRINGS = {
 
     notesTitle: '運作方式',
     notes: [
-      '<strong>Threads 登入</strong>只會讀你的帳號名稱與頭像，不會保存你的任何 token。',
+      '<strong>Google 登入</strong>只會讀你的名稱與頭像。<strong>不會要你的 email</strong>，也不會保存你的任何 token。',
       '<strong>點擊有速率上限</strong>，每個帳號每秒 8 次。連點器超過這條線也拿不到分，所以這裡比的是耐力不是腳本。',
       '這個排行榜每天會截圖發到 X 一次，並 tag <a href="https://x.com/thsottiaux" rel="noopener">@thsottiaux</a>。他可以把我們靜音。',
-      '與 OpenAI、Threads 或 <a href="https://codex-resets.com" rel="noopener">codex-resets.com</a> 均無關聯 —— 後者的 beg 按鈕是這一切的起點。',
+      '與 OpenAI、Google 或 <a href="https://codex-resets.com" rel="noopener">codex-resets.com</a> 均無關聯 —— 後者的 beg 按鈕是這一切的起點。',
     ],
 
     toastSignInFailed: '登入失敗：{error}',
-    err_threads_not_configured: 'Threads 登入還沒開通 —— 但下面的排行榜已經是即時的了。',
+    err_google_not_configured: 'Google 登入還沒開通 —— 但下面的排行榜已經是即時的了。',
     toastPassed: '第 {rank} 名 —— 超車 @{user}',
     toastRank: '你現在是第 {rank} 名',
     toastExpired: '登入階段已過期，請重新登入',
@@ -160,7 +160,7 @@ export const STRINGS = {
     _locale: 'zh-Hans-CN',
     _font: 'Noto+Sans+SC',
     docTitle: 'Beg Board — 谁最会跪求 Codex reset',
-    docDescription: '用 Threads 登录、狂点按钮，看看全世界谁最想要 Codex 额度重置。',
+    docDescription: '用 Google 登录、狂点按钮，看看全世界谁最想要 Codex 额度重置。',
 
     brand: 'Beg Board',
     tagline:
@@ -185,11 +185,11 @@ export const STRINGS = {
     comboFervent: '狂热',
     comboUnhinged: '走火入魔',
 
-    helpSignedOut: '用 Threads 登录，你的跪求才会被计分。',
+    helpSignedOut: '用 Google 登录，你的跪求才会被计分。',
     helpLive: '每秒最多计 8 次。超过的部分点起来一样爽，但分数不会动。',
     helpDemo: '演示模式 —— 什么都不会发出。把 config.js 指向你的 Worker 才会真的上线。',
 
-    signIn: '用 Threads 登录',
+    signIn: '用 Google 登录',
     signOut: '退出登录',
 
     boardTitle: '排行榜',
@@ -200,14 +200,14 @@ export const STRINGS = {
 
     notesTitle: '运作方式',
     notes: [
-      '<strong>Threads 登录</strong>只会读你的账号名称与头像，不会保存你的任何 token。',
+      '<strong>Google 登录</strong>只会读你的名称与头像。<strong>不会要你的 email</strong>，也不会保存你的任何 token。',
       '<strong>点击有速率上限</strong>，每个账号每秒 8 次。连点器超过这条线也拿不到分，所以这里比的是耐力不是脚本。',
       '这个排行榜每天会截图发到 X 一次，并 tag <a href="https://x.com/thsottiaux" rel="noopener">@thsottiaux</a>。他可以把我们静音。',
-      '与 OpenAI、Threads 或 <a href="https://codex-resets.com" rel="noopener">codex-resets.com</a> 均无关联 —— 后者的 beg 按钮是这一切的起点。',
+      '与 OpenAI、Google 或 <a href="https://codex-resets.com" rel="noopener">codex-resets.com</a> 均无关联 —— 后者的 beg 按钮是这一切的起点。',
     ],
 
     toastSignInFailed: '登录失败：{error}',
-    err_threads_not_configured: 'Threads 登录还没开通 —— 但下面的排行榜已经是实时的了。',
+    err_google_not_configured: 'Google 登录还没开通 —— 但下面的排行榜已经是实时的了。',
     toastPassed: '第 {rank} 名 —— 超越 @{user}',
     toastRank: '你现在是第 {rank} 名',
     toastExpired: '登录状态已过期，请重新登录',

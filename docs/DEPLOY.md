@@ -8,7 +8,7 @@
 | 需求 | GitHub Pages 單獨做得到嗎 | 為什麼 |
 |---|---|---|
 | 顯示頁面、動畫、UI | ✅ | 純 HTML/CSS/JS，零 build step |
-| Threads 登入 | ❌ | Threads 用 OAuth 2.0 **authorization code** flow，拿 code 換 token 時必須帶 `client_secret`。Threads 目前不支援公開 client 的 PKCE-only 流程 —— 把 secret 放進靜態 JS 等於公開它，任何人都能冒用你的 app 身分 |
+| Google 登入 | ❌ | OAuth 2.0 **authorization code** flow，拿 code 換 token 時必須帶 `client_secret`。把 secret 放進靜態 JS 等於公開它，任何人都能冒用你的 app 身分 |
 | 跨使用者的計數與排行榜 | ❌ | 需要一份所有人共寫的持久狀態。靜態站只有每個瀏覽器各自的 `localStorage`，互相看不到 |
 | 即時更新 | ❌ | 需要 WebSocket 或 SSE 伺服器 |
 | 每日截圖發 X | ⚠️ | 頁面本身不行，但**同一個 repo 的 GitHub Actions 可以** —— Actions 有 cron、有 secrets、跑得動 Playwright。這條不需要另外的伺服器 |
@@ -26,15 +26,24 @@ Cloudflare Worker + Durable Object。Worker 同時解掉 OAuth、共享計數、
 
 ---
 
-## 1. Threads App
+## 1. Google OAuth client
 
-1. <https://developers.facebook.com/apps> → 建立 app → 加入 **Threads API** 產品。
-2. Valid OAuth Redirect URI 填 Worker 的 callback：
-   `https://<worker>.workers.dev/api/auth/threads/callback`
-3. 記下 **Threads App ID** 與 **Threads App Secret**。
-4. 上線前 app 處於開發模式，只有被加進去的測試帳號能登入；要公開需要送審 `threads_basic`。
+1. <https://console.cloud.google.com/apis/credentials> → 建（或選）一個專案。
+2. **OAuth consent screen**：User type 選 **External**，填 app 名稱與聯絡信箱。
+   Scope **只加 `openid` 與 `.../auth/userinfo.profile`** —— 這兩個是
+   non-sensitive scope，**不需要 Google 審核**就能直接 Publish 成 production。
+   **不要加 `email`**：我們不需要，而多要一個不會顯示的個資只是負債。
+3. **Credentials → Create credentials → OAuth client ID → Web application**。
+4. Authorized redirect URI 填 Worker 的 callback，**字串完全一致**：
+   ```
+   https://tibo-beg-api.daniel0423.workers.dev/api/auth/google/callback
+   ```
+5. 拿到 **Client ID** 與 **Client secret**。
+6. Consent screen 記得按 **Publish app** 切到 production；留在 Testing 模式的話
+   只有你加進測試名單的帳號能登入（上限 100 人）。
 
-> 本專案只要 `threads_basic`。不會發文、不會讀你的貼文。
+> 只要 `openid profile`。拿到的是 `sub`（穩定的不透明 id）、`name`、`picture`，
+> **沒有 email**。排行榜顯示的是 Google 的 `name`。
 
 ## 2. Cloudflare Worker
 
@@ -48,8 +57,8 @@ npx wrangler login
 （例如 `https://danieltsai0423.github.io`，**不要結尾斜線**；本機開發可保留 `http://localhost:4173`）。
 
 ```bash
-npx wrangler secret put THREADS_APP_ID
-npx wrangler secret put THREADS_APP_SECRET
+npx wrangler secret put GOOGLE_CLIENT_ID
+npx wrangler secret put GOOGLE_CLIENT_SECRET
 npx wrangler secret put SESSION_SECRET      # 隨機 48 bytes，例如 openssl rand -base64 48
 npx wrangler deploy
 ```
@@ -119,8 +128,16 @@ node scripts/post-to-x.mjs --image out/board.png --dry-run
 ## 常見問題
 
 **登入後跳回來帶 `#error=token_exchange_failed`**
-`redirect_uri` 必須和 Threads app 設定裡的字串**完全一致**（含結尾斜線與 http/https）。
-Worker 送出的是 `https://<worker>/api/auth/threads/callback`。
+`redirect_uri` 必須和 Google Credentials 裡登記的字串**完全一致**（含結尾斜線與
+http/https）。Worker 送出的是 `https://<worker>/api/auth/google/callback`。
+
+**登入後跳回來帶 `#error=google_not_configured`**
+`GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` 還沒設。這是刻意的提示 ——
+沒有這道防護的話會帶著 `client_id=undefined` 轉去 Google 的錯誤頁。
+
+**Google 顯示「This app isn't verified」**
+consent screen 還在 Testing，或 scope 裡混進了 sensitive scope。
+只用 `openid` + `userinfo.profile` 的話 publish 到 production 不需要審核。
 
 **登入後跳回來帶 `#error=bad_state`**
 state 有 10 分鐘效期；或是 `ALLOWED_ORIGINS` 沒把你的 Pages 網址列進去，導致 redirect 被擋。

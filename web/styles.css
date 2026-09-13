@@ -194,6 +194,30 @@ main,
   background: var(--magenta);
 }
 
+/* The G keeps its own colours on a white tile, per Google's brand terms --
+   our primary button is violet, so the mark cannot sit on it directly. */
+.btn--google {
+  padding-left: 7px;
+  gap: 10px;
+}
+
+.g-mark {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+}
+
+.g-mark svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+}
+
 .auth {
   display: flex;
   align-items: center;

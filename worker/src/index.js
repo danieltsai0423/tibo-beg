@@ -1,13 +1,20 @@
 // Tibo Beg - API worker.
-// Threads OAuth (needs client_secret, hence a server), session minting,
+// Google OAuth (needs client_secret, hence a server), session minting,
 // and a thin router in front of the BegRoom Durable Object.
 
 export { BegRoom } from './room.js';
 
-const AUTHORIZE_URL = 'https://threads.com/oauth/authorize';
-const TOKEN_URL = 'https://graph.threads.com/oauth/access_token';
-const PROFILE_URL = 'https://graph.threads.com/v1.0/me';
-const PROFILE_FIELDS = 'id,username,threads_profile_picture_url';
+const AUTHORIZE_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
+const TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const PROFILE_URL = 'https://openidconnect.googleapis.com/v1/userinfo';
+
+// Deliberately no `email` scope. The leaderboard needs a name and a picture;
+// asking for an address we would never show is a liability, not a feature.
+const SCOPE = 'openid profile';
+
+// Identity ids are namespaced by provider so a second provider could never
+// collide with a Google `sub`.
+const UID_PREFIX = 'google:';
 
 const SESSION_TTL = 60 * 60 * 24 * 30; // 30d
 const STATE_TTL = 60 * 10; // 10min
@@ -123,19 +130,21 @@ async function authStart(req, env) {
   const back = safeRedirect(env, url.searchParams.get('redirect') || '');
   // Without these the redirect would carry client_id=undefined and the visitor
   // would land on a Meta error page with no idea what went wrong.
-  if (!env.THREADS_APP_ID || !env.THREADS_APP_SECRET) {
-    return Response.redirect(`${back}#error=threads_not_configured`, 302);
+  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
+    return Response.redirect(`${back}#error=google_not_configured`, 302);
   }
   const state = await sign(
     { r: back, n: crypto.randomUUID(), exp: Math.floor(Date.now() / 1000) + STATE_TTL },
     env.SESSION_SECRET,
   );
   const authorize = new URL(AUTHORIZE_URL);
-  authorize.searchParams.set('client_id', env.THREADS_APP_ID);
-  authorize.searchParams.set('redirect_uri', `${url.origin}/api/auth/threads/callback`);
-  authorize.searchParams.set('scope', 'threads_basic');
+  authorize.searchParams.set('client_id', env.GOOGLE_CLIENT_ID);
+  authorize.searchParams.set('redirect_uri', `${url.origin}/api/auth/google/callback`);
+  authorize.searchParams.set('scope', SCOPE);
   authorize.searchParams.set('response_type', 'code');
   authorize.searchParams.set('state', state);
+  // Skip the account chooser only when the visitor has one account anyway.
+  authorize.searchParams.set('prompt', 'select_account');
   return Response.redirect(authorize.toString(), 302);
 }
 
@@ -150,10 +159,10 @@ async function authCallback(req, env) {
   if (!code) return fail(url.searchParams.get('error_description') || 'no_code');
 
   const form = new URLSearchParams({
-    client_id: env.THREADS_APP_ID,
-    client_secret: env.THREADS_APP_SECRET,
+    client_id: env.GOOGLE_CLIENT_ID,
+    client_secret: env.GOOGLE_CLIENT_SECRET,
     grant_type: 'authorization_code',
-    redirect_uri: `${url.origin}/api/auth/threads/callback`,
+    redirect_uri: `${url.origin}/api/auth/google/callback`,
     code,
   });
   const tokenRes = await fetch(TOKEN_URL, {
@@ -164,19 +173,20 @@ async function authCallback(req, env) {
   const token = await tokenRes.json().catch(() => null);
   if (!tokenRes.ok || !token?.access_token) return fail('token_exchange_failed');
 
-  const profileRes = await fetch(
-    `${PROFILE_URL}?fields=${PROFILE_FIELDS}&access_token=${encodeURIComponent(token.access_token)}`,
-  );
+  const profileRes = await fetch(PROFILE_URL, {
+    headers: { authorization: `Bearer ${token.access_token}` },
+  });
   const profile = await profileRes.json().catch(() => null);
-  if (!profileRes.ok || !profile?.id) return fail('profile_failed');
+  if (!profileRes.ok || !profile?.sub) return fail('profile_failed');
 
-  // The Threads access token has done its job (identity). We deliberately do not
-  // store it -- nothing downstream acts on the user's behalf.
+  // The Google access token has done its job (identity). We deliberately do not
+  // store it -- nothing downstream acts on the user's behalf. `sub` is Google's
+  // stable opaque id; `email` was never requested, so there is none to leak.
   const session = await sign(
     {
-      uid: String(profile.id),
-      un: String(profile.username || 'anonymous'),
-      av: String(profile.threads_profile_picture_url || ''),
+      uid: UID_PREFIX + String(profile.sub),
+      un: String(profile.name || 'anonymous'),
+      av: String(profile.picture || ''),
       cc: (req.cf && req.cf.country) || null,
       exp: Math.floor(Date.now() / 1000) + SESSION_TTL,
     },
@@ -194,8 +204,8 @@ export default {
 
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(req, env) });
 
-    if (path === '/api/auth/threads/start') return authStart(req, env);
-    if (path === '/api/auth/threads/callback') return authCallback(req, env);
+    if (path === '/api/auth/google/start') return authStart(req, env);
+    if (path === '/api/auth/google/callback') return authCallback(req, env);
 
     if (path === '/api/me') {
       const session = await bearer(req, env);

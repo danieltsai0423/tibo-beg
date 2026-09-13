@@ -23,6 +23,6 @@ new_sqlite_classes = ["BegRoom"]
 enabled = true
 
 # Secrets (never in this file):
-#   wrangler secret put THREADS_APP_ID
-#   wrangler secret put THREADS_APP_SECRET
+#   wrangler secret put GOOGLE_CLIENT_ID
+#   wrangler secret put GOOGLE_CLIENT_SECRET
 #   wrangler secret put SESSION_SECRET      # openssl rand -base64 48

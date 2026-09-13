@@ -1,7 +1,7 @@
 # Beg Board
 
 一個「誰最會跪求 Codex reset」的即時排行榜。靈感來自 <https://codex-resets.com/> 的 beg 按鈕，
-但把匿名的全域計數器換成**具名競賽**：用 Threads 登入、每個人的點擊次數分開算、即時排行榜、
+但把匿名的全域計數器換成**具名競賽**：用 Google 登入、每個人的點擊次數分開算、即時排行榜、
 每天自動把總榜截圖發到 X 並 @thsottiaux。
 
 **Demo**：`web/` 直接開就能玩（demo 模式，資料只在瀏覽器裡，不連任何後端）。
@@ -14,7 +14,7 @@ npm run serve      # http://localhost:4173
 
 | | codex-resets.com | Beg Board |
 |---|---|---|
-| 身分 | 匿名 | Threads OAuth（只讀 handle + 頭像） |
+| 身分 | 匿名 | Google OAuth（只讀名稱 + 頭像，不要 email） |
 | 計數 | 單一全域數字 | 每人一筆 + 全域總計 |
 | 即時 | WebSocket 廣播國旗 emoji | WebSocket 廣播**頭像**＋即時名次變動 |
 | 排行 | 無 | 前三名 podium + 即時 FLIP 換位動畫 |
@@ -62,15 +62,17 @@ scripts/      Playwright 截圖 + X API v2 發文
 
 ## 快速開始
 
-1. `npm run serve`，開 <http://localhost:4173>，按 **Sign in with Threads** 進 demo 模式試玩。
-2. 要上線：照 [docs/DEPLOY.md](docs/DEPLOY.md) 走（Threads App → Worker → Pages → X 排程）。
+1. `npm run serve`，開 <http://localhost:4173>，按 **Sign in with Google** 進 demo 模式試玩。
+2. 要上線：照 [docs/DEPLOY.md](docs/DEPLOY.md) 走（Google OAuth → Worker → Pages → X 排程）。
 
 ## 已知邊界
 
 - **點擊速率上限 8/秒/帳號**（Durable Object 裡的 token bucket）。沒有這條，排行榜量的是
   autoclicker 的品質而不是誠意。超過的點擊 UI 照樣有反應，但不計分。
-- **Threads access token 不留存**。換到 token 只為了讀 `id` / `username` / 頭像，讀完就丟，
-  之後靠自簽的 session token（HMAC-SHA256，30 天）認人。
+- **Google access token 不留存**。換到 token 只為了讀 `sub` / `name` / `picture`，讀完就丟，
+  之後靠自簽的 session token（HMAC-SHA256，30 天）認人。scope 只要 `openid profile`，
+  **沒有要 email**，所以也不存在洩漏 email 的可能。
+- **使用者 id 有 provider 前綴**（`google:<sub>`）。未來要加第二家登入不會撞號。
 - **每日發文是 @ 真人**。頻率請維持一天一次；要停就把 `.github/workflows/daily-x-post.yml`
   的 `schedule` 拿掉。
-- 與 OpenAI、Threads、codex-resets.com 均無關聯。
+- 與 OpenAI、Google、codex-resets.com 均無關聯。
