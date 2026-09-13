@@ -87,6 +87,7 @@ export const STRINGS = {
     podiumAria: 'Top three beggars',
     boardAria: 'Ranks four and below',
     boardEmpty: 'Nobody has begged yet. Be the first.',
+    firstBeggar: '🥇 First to beg: {name} · {date}',
 
     notesTitle: 'How this works',
     notes: [
@@ -164,6 +165,7 @@ export const STRINGS = {
     podiumAria: '跪求前三名',
     boardAria: '第四名以後',
     boardEmpty: '還沒有人跪求。當第一個。',
+    firstBeggar: '🥇 第一位跪求的人：{name} · {date}',
 
     notesTitle: '運作方式',
     notes: [
@@ -239,6 +241,7 @@ export const STRINGS = {
     podiumAria: '跪求前三名',
     boardAria: '第四名以后',
     boardEmpty: '还没有人跪求。当第一个。',
+    firstBeggar: '🥇 第一位跪求的人：{name} · {date}',
 
     notesTitle: '运作方式',
     notes: [

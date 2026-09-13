@@ -48,6 +48,7 @@ const el = {
   podium: $('podium'),
   board: $('board'),
   boardEmpty: $('board-empty'),
+  firstBeggar: $('first-beggar'),
   boardSub: $('board-sub'),
   toasts: $('toasts'),
   themeIcon: $('theme-icon'),
@@ -67,6 +68,7 @@ const state = {
   bps: 0,
   board: [],
   beggars: 0,
+  firstBeggar: null,
   pending: 0,
   requestId: null,
   flushTimer: null,
@@ -510,6 +512,31 @@ function renderBoard() {
   }
 }
 
+function renderFirstBeggar() {
+  const first = state.firstBeggar;
+  if (!first?.name) {
+    el.firstBeggar.hidden = true;
+    return;
+  }
+  const date = new Intl.DateTimeFormat(locale(), { dateStyle: 'medium' }).format(new Date(first.at));
+  const template = t('firstBeggar');
+  // Built as nodes rather than innerHTML: the name comes from a user.
+  el.firstBeggar.textContent = '';
+  const parts = template.split(/(\{name\}|\{date\})/);
+  for (const part of parts) {
+    if (part === '{name}') {
+      const strong = document.createElement('strong');
+      strong.textContent = first.name;
+      el.firstBeggar.appendChild(strong);
+    } else if (part === '{date}') {
+      el.firstBeggar.appendChild(document.createTextNode(date));
+    } else if (part) {
+      el.firstBeggar.appendChild(document.createTextNode(part));
+    }
+  }
+  el.firstBeggar.hidden = false;
+}
+
 function noteRank(rank) {
   if (rank === null) return;
   const previous = state.myRank;
@@ -532,11 +559,15 @@ function applySnapshot(data) {
   if (typeof data.bps === 'number') state.bps = data.bps;
   if (typeof data.beggars === 'number') state.beggars = data.beggars;
   if (Array.isArray(data.board)) state.board = data.board;
+  // Only /board and the socket's opening frame carry this; ordinary ticks omit
+  // it, so `undefined` must mean "unchanged" rather than "cleared".
+  if (data.first_beggar !== undefined) state.firstBeggar = data.first_beggar;
 
   odometer(el.total, state.total);
   fillCount(el.pulseLabel, 'pulseLabel', state.bps.toFixed(1));
   el.pulseFill.style.width = `${Math.min(100, (state.bps / BPS_FULL) * 100)}%`;
   renderBoard();
+  renderFirstBeggar();
 
   if (state.me) {
     const mine = state.board.find((entry) => entry.uid === state.me.uid);
@@ -745,6 +776,7 @@ function demoRender() {
     bps: Math.round((3 + Math.random() * 22) * 10) / 10,
     beggars: sorted.length,
     board: sorted.map((u, i) => ({ rank: i + 1, ...u })),
+    first_beggar: DEMO_FIRST,
   });
 }
 
@@ -753,6 +785,13 @@ function demoCredit(n) {
   if (me) me.count += n;
   demoRender();
 }
+
+// Pretend the top seed got there first, so the demo shows the same line.
+const DEMO_FIRST = {
+  uid: 'demo-0',
+  name: DEMO_NAMES[0][0],
+  at: new Date(Date.now() - 86400000 * 9).toISOString(),
+};
 
 function demoSignIn() {
   state.me = {
@@ -802,6 +841,7 @@ function repaintDynamic() {
   odometer(el.begCount, state.myCount);
   fillCount(el.pulseLabel, 'pulseLabel', state.bps.toFixed(1));
   renderBoard();
+  renderFirstBeggar();
 }
 
 function initLanguage() {
