@@ -48,6 +48,9 @@ export const STRINGS = {
     langToggle: 'Change language',
     langToggleFace: 'EN',
 
+    idolCaption: '— the man with the reset button',
+    idolAria: 'Tibo Sottiaux on X (opens in a new site)',
+
     altarTitle: 'Total begs this cycle',
     connConnecting: 'connecting',
     connLive: 'live',
@@ -106,6 +109,9 @@ export const STRINGS = {
     langToggle: '切換語言',
     langToggleFace: '繁',
 
+    idolCaption: '—— 握著重置開關的男人',
+    idolAria: '前往 Tibo Sottiaux 的 X 頁面',
+
     altarTitle: '本輪總跪求次數',
     connConnecting: '連線中',
     connLive: '即時',
@@ -161,6 +167,9 @@ export const STRINGS = {
     themeToggle: '切换深色模式',
     langToggle: '切换语言',
     langToggleFace: '简',
+
+    idolCaption: '—— 握着重置开关的男人',
+    idolAria: '前往 Tibo Sottiaux 的 X 页面',
 
     altarTitle: '本轮总跪求次数',
     connConnecting: '连接中',

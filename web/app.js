@@ -51,6 +51,8 @@ const el = {
   toasts: $('toasts'),
   themeIcon: $('theme-icon'),
   langFace: $('lang-face'),
+  idol: $('idol-link'),
+  altar: document.querySelector('.altar'),
 };
 
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -272,6 +274,7 @@ function bumpCombo() {
   state.combo += 1;
   const tier = tierFor(state.combo);
   el.beg.dataset.combo = String(tier.level);
+  el.altar.dataset.combo = String(tier.level); // brightens the halo
   el.begEmoji.textContent = tier.emoji;
   el.combo.hidden = state.combo < 5;
   el.comboLabel.textContent = t(tier.key);
@@ -280,6 +283,7 @@ function bumpCombo() {
   state.comboTimer = setTimeout(() => {
     state.combo = 0;
     el.beg.dataset.combo = '0';
+    el.altar.dataset.combo = '0';
     el.begEmoji.textContent = '🙏';
     el.combo.hidden = true;
   }, COMBO_DECAY_MS);
@@ -539,6 +543,13 @@ function onBeg() {
   el.begEmoji.classList.remove('is-praying');
   void el.begEmoji.offsetWidth; // restart the keyframe
   el.begEmoji.classList.add('is-praying');
+
+  // He acknowledges every third plea. Reacting to every click reads as jitter.
+  if (state.combo % 3 === 1) {
+    el.idol.classList.remove('is-blessed');
+    void el.idol.offsetWidth;
+    el.idol.classList.add('is-blessed');
+  }
 
   // Paint first, account later.
   state.myCount += 1;

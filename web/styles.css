@@ -245,6 +245,117 @@ main,
   pointer-events: none;
 }
 
+/* ------------------------------------------------------------------- idol */
+
+.idol {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.idol-portrait {
+  position: relative;
+  display: block;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  border: 3px solid var(--line);
+  box-shadow: var(--shadow-sm);
+  background: var(--gold);
+  text-decoration: none;
+  transition: transform 0.15s var(--digit-ease);
+}
+
+/* The halo sits outside this box, so the circular crop has to happen on the
+   image itself -- overflow:hidden on the link would clip the halo away. */
+.idol-portrait img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* Saint's halo. It is a shrine, after all. */
+.idol-portrait::before {
+  content: "";
+  position: absolute;
+  inset: -14px;
+  border-radius: 50%;
+  border: 3px solid var(--gold);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.idol-portrait:hover {
+  transform: translateY(-2px) rotate(-2deg);
+}
+
+.idol-portrait:focus-visible {
+  outline: 3px solid var(--violet);
+  outline-offset: 4px;
+}
+
+/* The halo brightens as the begging gets more fervent. */
+.altar[data-combo="1"] .idol-portrait::before,
+.altar[data-combo="2"] .idol-portrait::before,
+.altar[data-combo="3"] .idol-portrait::before {
+  opacity: 1;
+}
+
+.altar[data-combo="2"] .idol-portrait::before {
+  inset: -18px;
+  border-color: var(--magenta);
+}
+
+.altar[data-combo="3"] .idol-portrait::before {
+  inset: -22px;
+  border-color: var(--violet);
+  animation: halo-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes halo-pulse {
+  50% {
+    transform: scale(1.08);
+    opacity: 0.55;
+  }
+}
+
+.idol-portrait.is-blessed {
+  animation: idol-bob 0.36s var(--digit-ease);
+}
+
+@keyframes idol-bob {
+  40% {
+    transform: translateY(-6px) scale(1.06);
+  }
+}
+
+.idol-caption {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  max-width: 34ch;
+}
+
+.idol-caption a {
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .idol-portrait,
+  .idol-portrait::before {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 .altar-head {
   display: flex;
   align-items: center;
