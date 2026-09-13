@@ -12,7 +12,7 @@
 import { createHmac } from 'node:crypto';
 // The rolling-window arithmetic is pure, so it is tested directly rather than
 // through the API: expiry cannot be observed over HTTP without waiting an hour.
-import { bumpWindow, windowScore } from '../worker/src/room.js';
+import { bumpWindow, capRoom, secondsToNextHour, windowScore } from '../worker/src/room.js';
 
 const BASE = 'http://127.0.0.1:8787';
 const SECRET = 'dev-secret-not-for-production';
@@ -70,6 +70,20 @@ const before = JSON.stringify(u);
 windowScore(u, H + 30);
 check('scoring does not mutate the record', JSON.stringify(u) === before, `${before} -> ${JSON.stringify(u)}`);
 
+// The cap is tested here rather than over HTTP because reaching it needs 20,000
+// credited begs, and the server's own 8-a-second ceiling makes that 42 minutes
+// of wall clock -- which is itself the argument that no human reaches it.
+u = bumpWindow({}, H, 90);
+check('room left under the cap', capRoom(u, H, 100) === 10, String(capRoom(u, H, 100)));
+check('no room at the cap', capRoom(u, H, 90) === 0, String(capRoom(u, H, 90)));
+check('past the cap never goes negative', capRoom(u, H, 50) === 0, String(capRoom(u, H, 50)));
+// Rolling, not midnight-reset: room returns as the oldest hour ages out, so
+// nobody has to be told to come back at a particular time of day.
+check('room returns once the window moves on', capRoom(u, H + 24, 100) === 100, String(capRoom(u, H + 24, 100)));
+
+const wait = secondsToNextHour(H * 3_600_000 + 3_500_000);
+check('retry_after points at the next hour boundary', wait === 100, String(wait));
+
 // 1. anonymous read
 let res = await fetch(`${BASE}/api/leaderboard`);
 let board = await res.json();
@@ -123,6 +137,13 @@ check('beg credits 5', out.count === 5 && out.total === base0 + 5 && out.rank !=
 // A fresh user's window score and lifetime tally are the same number; they only
 // diverge once begs start ageing out, which no test can wait for.
 check('beg reports both window and lifetime', out.lifetime === 5 && out.count === out.lifetime, JSON.stringify(out));
+// The client goes silent on `capped`, so the field has to be present and false
+// on the ordinary path -- a missing one would read as falsy by luck, not design.
+check(
+  'beg reports the cap headroom',
+  out.capped === false && typeof out.remaining === 'number' && out.remaining > 0,
+  JSON.stringify(out),
+);
 const aliceRank = out.rank;
 
 const bob = mint(`b-${run}`, 'bob', 'JP');
@@ -138,9 +159,12 @@ check(
   `alice ${aliceRank} -> ${aliceAfter.rank}, bob ${bobRank}`,
 );
 
-// 7. per-request cap: ask for 500, server must clamp to 10
+// 7. per-request cap: ask for 500, server must clamp to its own ceiling.
+// The ceiling is 40 rather than 10 so a backed-off client can hand over several
+// seconds of begs in one request instead of four -- the cheapest way to spend
+// fewer of the day's 100,000.
 out = await beg(alice, 500);
-check('n is clamped to 10 per request', out.credited <= 10, JSON.stringify(out));
+check('n is clamped to 40 per request', out.credited <= 40, JSON.stringify(out));
 
 // 8. token bucket: hammer past the burst allowance
 let throttled = 0;

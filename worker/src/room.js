@@ -13,7 +13,12 @@ const BROADCAST_MS = 200; // coalesce bursts into one frame
 // never the one at risk of eviction.
 const PERSIST_MS = 3_000;
 const BOARD_SIZE = 15; // rows pushed over the wire
-const MAX_PER_REQUEST = 10; // client batches at 10, so anything above is a forgery
+// A backed-off client waits seconds between requests, so it has more than ten
+// begs to hand over by the time it sends. Carrying them in one request instead
+// of four is the cheapest saving available: same begs credited, a quarter of
+// the requests. The token bucket still decides how many are actually granted,
+// so a forged `n` buys nothing.
+const MAX_PER_REQUEST = 40;
 const BUCKET_CAPACITY = 40; // burst allowance per user
 const BUCKET_REFILL = 8; // sustained begs/sec per user
 const RATE_WINDOW_MS = 5000; // window for the global begs/sec readout
@@ -25,6 +30,13 @@ const RATE_WINDOW_MS = 5000; // window for the global begs/sec readout
 // shown -- they just do not decide the order.
 const WINDOW_HOURS = 24;
 const HOUR_MS = 3_600_000;
+// Ceiling on what one account can have credited inside that window. The token
+// bucket limits the rate; this limits the total, which is the only thing that
+// bounds what an unattended phone costs over a whole day. At the bucket's own
+// 8 begs a second it takes 42 minutes of flat-out clicking to reach, so it is
+// not a limit anyone arrives at by hand -- and the client is told to go quiet
+// once it does, which is where the saving actually comes from.
+const WINDOW_CAP = 20_000;
 const NAME_MIN = 2;
 const NAME_MAX = 20;
 const RENAME_COOLDOWN_MS = 2000; // between renames that reach the uniqueness scan
@@ -102,6 +114,16 @@ export function windowScore(user, hour) {
     sum += w[(((user.wh - i) % WINDOW_HOURS) + WINDOW_HOURS) % WINDOW_HOURS] || 0;
   }
   return sum;
+}
+
+/** How many more begs this user may have credited before hitting the cap. */
+export function capRoom(user, hour, cap = WINDOW_CAP) {
+  return Math.max(0, cap - windowScore(user, hour));
+}
+
+/** Seconds until the oldest hour drops out of the window and room returns. */
+export function secondsToNextHour(now = Date.now()) {
+  return Math.ceil((HOUR_MS - (now % HOUR_MS)) / 1000);
 }
 
 /** Credits `n` begs to the current hour, clearing whatever has aged out. */
@@ -484,9 +506,6 @@ export class BegRoom {
       const uid = body?.uid;
       if (!uid) return Response.json({ error: 'bad_request' }, { status: 400 });
 
-      const want = Math.max(1, Math.min(MAX_PER_REQUEST, Math.floor(Number(body.n) || 1)));
-      const credited = this.spend(uid, want);
-
       const user = this.users.get(uid) || { un: body.un, av: body.av, cc: body.cc, n: 0 };
       // `un` tracks the provider; `dn` is the user's own choice and is never
       // overwritten from the session token.
@@ -494,12 +513,40 @@ export class BegRoom {
       user.av = body.av || user.av;
       user.cc = body.cc ?? user.cc;
 
+      const hour = hourIndex();
+      const room = capRoom(user, hour);
+      const asked = Math.max(1, Math.min(MAX_PER_REQUEST, Math.floor(Number(body.n) || 1)));
+
+      // At the cap, answer without spending a token and without touching any
+      // shared state, and tell the client when to come back. The point of the
+      // cap is not the refusal -- the request still cost what it cost -- it is
+      // that the client stops sending, so the next hour costs nothing at all.
+      if (room === 0) {
+        this.users.set(uid, user);
+        return Response.json({
+          total: this.total,
+          count: windowScore(user, hour),
+          lifetime: user.n,
+          rank: this.rankOf(uid),
+          credited: 0,
+          throttled: asked,
+          capped: true,
+          remaining: 0,
+          retry_after: secondsToNextHour(),
+        });
+      }
+
+      // Clamped before spending, not after, or tokens would be burned on begs
+      // the cap was never going to allow.
+      const want = Math.min(asked, room);
+      const credited = this.spend(uid, want);
+
       if (credited > 0) {
         // Only the id and the timestamp are frozen; the name is resolved at read
         // time so a later rename is reflected rather than stale.
         if (!this.first) this.first = { uid, at: Date.now() };
         user.n += credited; // lifetime, never decays
-        bumpWindow(user, hourIndex(), credited); // what the rank is made of
+        bumpWindow(user, hour, credited); // what the rank is made of
         this.total += credited;
         this.recent.push([Date.now(), credited]);
         this.pending.push({
@@ -517,13 +564,19 @@ export class BegRoom {
       this.users.set(uid, user);
       await this.armAlarm();
 
+      const score = windowScore(user, hour);
       return Response.json({
         total: this.total,
-        count: windowScore(user, hourIndex()),
+        count: score,
         lifetime: user.n,
         rank: this.rankOf(uid),
         credited,
-        throttled: want - credited,
+        // Counts what the caller asked for, not the cap-clamped figure, so a
+        // client near the ceiling still sees begs being refused and backs off
+        // before it gets there.
+        throttled: asked - credited,
+        capped: false,
+        remaining: capRoom(user, hour),
       });
     }
 

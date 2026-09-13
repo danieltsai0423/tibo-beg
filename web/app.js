@@ -36,8 +36,21 @@ const FLUSH_MS = 100;
 // The server credits at most 8 begs a second, so past roughly one request a
 // second every extra request is refused anyway. When a response says begs were
 // thrown away, the cadence doubles; when they are all credited, it halves back.
-const FLUSH_MS_MAX = 1600;
-const FLUSH_AT = 10; // matches the server's per-request cap
+const FLUSH_MS_MAX = 3200;
+// Backing off only helps once the server starts refusing begs. Someone tapping
+// steadily just under the 8-a-second ceiling is never refused, so it never
+// engages -- and at that rate each click arrives more than 100 ms after the
+// last, so every single one gets a request to itself. Measured on the live site
+// that was 5 clicks a second costing 5 requests a second, the worst ratio of
+// any behaviour on the page, and the one the backoff was blind to.
+//
+// So the window widens on continuous clicking rather than on refusal. The combo
+// counter already distinguishes the two, and it is what the UI uses to decide
+// the storm is real.
+const FLUSH_MS_STORM = 1000;
+const STORM_AT = 5; // same threshold that reveals the combo readout
+const FLUSH_AT = 10; // flush early when idle: a normal click still feels instant
+const SEND_MAX = 40; // matches the server's per-request cap
 const COMBO_DECAY_MS = 1200;
 const BPS_FULL = 40; // begs/sec that fills the pulse bar
 
@@ -85,6 +98,7 @@ const state = {
   requestId: null,
   flushTimer: null,
   flushMs: FLUSH_MS,
+  mutedUntil: 0, // capped: keep painting, stop talking
   mine: new Set(), // request ids we already painted locally
   combo: 0,
   comboTimer: null,
@@ -702,11 +716,16 @@ async function flush() {
   // carry. The server clamps to the same number, and the overflow is made of
   // begs it was going to refuse anyway -- the next response corrects the
   // optimistic counter.
-  const n = Math.min(state.pending, FLUSH_AT);
+  const n = Math.min(state.pending, SEND_MAX);
   const requestId = state.requestId;
   state.pending = 0;
   state.requestId = null;
   if (n < 1 || !requestId) return;
+
+  // Capped until the next hour. Dropping the batch here rather than sending it
+  // is the entire saving: a refusal still costs a request, and an unattended
+  // phone would keep earning refusals all night.
+  if (Date.now() < state.mutedUntil) return;
 
   if (DEMO) {
     demoCredit(n);
@@ -737,7 +756,10 @@ async function flush() {
     odometer(el.total, state.total);
     odometer(el.begCount, state.myCount);
     noteRank(data.rank);
-    if (data.throttled > 0) {
+    if (data.capped) {
+      state.mutedUntil = Date.now() + Math.max(60, Number(data.retry_after) || 3600) * 1000;
+      toast(t('toastCapped'), 'warn');
+    } else if (data.throttled > 0) {
       state.flushMs = Math.min(FLUSH_MS_MAX, state.flushMs * 2);
       if (state.combo > 20) toast(t('toastThrottled'), 'warn');
     } else if (state.flushMs > FLUSH_MS) {
@@ -762,11 +784,16 @@ function onBeg() {
     el.idol.classList.add('is-blessed');
   }
 
-  // Paint first, account later.
-  state.myCount += 1;
-  state.total += 1;
-  odometer(el.begCount, state.myCount);
-  odometer(el.total, state.total);
+  // Paint first, account later -- but only while there is still an "later".
+  // Once capped, nothing more will be credited and no reply is coming to
+  // correct an optimistic guess, so the numbers would climb away from the truth
+  // and never come back. The animation stays; the counters stop.
+  if (Date.now() >= state.mutedUntil) {
+    state.myCount += 1;
+    state.total += 1;
+    odometer(el.begCount, state.myCount);
+    odometer(el.total, state.total);
+  }
   if (state.combo % 4 === 1) avatarBurst(state.me.avatar, false);
   else spawn(tier.emoji, { size: 22 + Math.round(Math.random() * 10) });
 
@@ -777,14 +804,18 @@ function onBeg() {
     state.mine.add(id);
     setTimeout(() => state.mine.delete(id), 30000);
   }
-  // The early flush only applies at the idle cadence. Once backed off, the
-  // timer alone decides when to send -- otherwise a fast enough tap rate would
-  // keep hitting this path and put the request rate straight back where it was.
-  if (state.pending >= FLUSH_AT && state.flushMs === FLUSH_MS) {
+  // Mid-storm the early flush would undo the wider window -- a fast enough tap
+  // rate reaches ten pending long before the timer, and the request rate goes
+  // straight back to where it was. During a storm it only fires at a full
+  // request's worth.
+  const storm = state.combo >= STORM_AT;
+  if (state.pending >= (storm ? SEND_MAX : FLUSH_AT)) {
     flush();
     return;
   }
-  if (!state.flushTimer) state.flushTimer = setTimeout(flush, state.flushMs);
+  if (!state.flushTimer) {
+    state.flushTimer = setTimeout(flush, Math.max(storm ? FLUSH_MS_STORM : FLUSH_MS, state.flushMs));
+  }
 }
 
 // -------------------------------------------------------------- demo driver

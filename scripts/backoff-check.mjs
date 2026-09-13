@@ -27,8 +27,10 @@ const TAPS_PER_SEC = 30;
 const STORM_MS = 16_000;
 const MEASURE_LAST_MS = 8000;
 // Unthrottled the client sends 10 requests a second, so the same 8 s window
-// costs ~80. At the backoff ceiling of one request per 1.6 s it should cost 5.
-const BUDGET = 12;
+// costs ~80. At the backoff ceiling of one request per 3.2 s, each carrying up
+// to 40 begs, it should cost 3. The budget is set to catch a regression back to
+// the smaller batch or the shorter ceiling, not to pin the exact number.
+const BUDGET = 8;
 
 function mint(uid, un, cc) {
   const body = b64(
@@ -114,6 +116,30 @@ check(
   `sustained tapping costs under ${BUDGET} requests per ${MEASURE_LAST_MS / 1000}s`,
   begRequests < BUDGET,
   `requests=${begRequests} (${perSec}/s, vs 10/s unthrottled → ${Math.round(begRequests * 10800)}/day)`,
+);
+
+// The rate that used to slip through everything: steady, but under the server's
+// 8-a-second ceiling, so nothing is ever refused and a refusal-driven backoff
+// never engages. Each click lands more than 100 ms after the last, so without a
+// storm window every one of them buys its own request. This was measured on the
+// live site at 5 clicks/s costing 5 requests/s.
+await page.waitForTimeout(1500); // let the previous storm's combo lapse
+begRequests = 0;
+const steady = page.evaluate(async () => {
+  const btn = document.querySelector('[data-role="beg"]');
+  const stop = Date.now() + 12_000;
+  while (Date.now() < stop) {
+    btn.click();
+    await new Promise((r) => setTimeout(r, 200)); // 5 clicks a second
+  }
+});
+await page.waitForTimeout(4000);
+begRequests = 0;
+await steady;
+check(
+  'steady sub-throttle tapping batches instead of one request per click',
+  begRequests <= 12,
+  `requests=${begRequests} in 8s (was ~40 before the storm window)`,
 );
 
 // Backing off must not mean giving up: the begs the server was willing to

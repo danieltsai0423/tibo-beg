@@ -109,6 +109,7 @@ export const STRINGS = {
     toastRank: 'You are now #{rank}',
     toastExpired: 'Session expired — sign in again',
     toastThrottled: 'easy — the counter caps at 8/sec',
+    toastCapped: "that is today's quota of devotion. back next hour.",
     toastDemo: 'Demo mode: no data leaves this browser',
   },
 
@@ -190,6 +191,7 @@ export const STRINGS = {
     toastRank: '你現在是第 {rank} 名',
     toastExpired: '登入階段已過期，請重新登入',
     toastThrottled: '慢一點 —— 每秒最多算 8 次',
+    toastCapped: '今日誠意已達上限，下個鐘頭再來',
     toastDemo: '展示模式：資料不會離開這個瀏覽器',
   },
 
@@ -269,6 +271,7 @@ export const STRINGS = {
     toastRank: '你现在是第 {rank} 名',
     toastExpired: '登录状态已过期，请重新登录',
     toastThrottled: '慢一点 —— 每秒最多算 8 次',
+    toastCapped: '今日诚意已达上限，下个钟头再来',
     toastDemo: '演示模式：数据不会离开这个浏览器',
   },
 };
