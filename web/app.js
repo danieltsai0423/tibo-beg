@@ -866,6 +866,12 @@ async function main() {
 
   state.token = readToken();
   state.me = await loadMe();
+  if (state.me) {
+    // Restore the personal tally rather than letting the button imply zero.
+    state.myCount = Number(state.me.count) || 0;
+    state.myRank = state.me.rank ?? null;
+    odometer(el.begCount, state.myCount);
+  }
   renderAuth();
 
   el.beg.addEventListener('click', onBeg);

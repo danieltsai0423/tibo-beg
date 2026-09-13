@@ -187,6 +187,18 @@ check(
   JSON.stringify(after.first_beggar),
 );
 
+// 9d. /api/me must carry the personal tally, or the button's counter shows 0
+// again after every reload for anyone outside the visible slice of the board.
+const mine = await fetch(`${BASE}/api/me`, { headers: { authorization: `Bearer ${alice}` } }).then((x) => x.json());
+const aliceBoard = await fetch(`${BASE}/api/leaderboard?limit=100`)
+  .then((x) => x.json())
+  .then((d) => d.board.find((e) => e.uid === `a-${run}`));
+check(
+  '/api/me carries the personal count and rank',
+  mine.count === aliceBoard.count && mine.rank === aliceBoard.rank,
+  `me=${mine.count}/${mine.rank} board=${aliceBoard.count}/${aliceBoard.rank}`,
+);
+
 // 10. final board
 res = await fetch(`${BASE}/api/leaderboard?limit=5`);
 board = await res.json();

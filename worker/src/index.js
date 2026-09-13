@@ -226,6 +226,10 @@ export default {
         display_name: stored?.display_name || null,
         avatar: session.av,
         country: session.cc,
+        // Without these the button's personal counter restarts at 0 on reload
+        // for anyone who is not in the top slice of the board.
+        count: stored?.count ?? 0,
+        rank: stored?.rank ?? null,
       });
     }
 
