@@ -20,13 +20,22 @@
   --shadow-sm: 3px 3px 0 var(--shadow-col);
   --radius: 16px;
 
-  --font-display: "Fredoka", "Arial Rounded MT Bold", system-ui, sans-serif;
-  --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Fredoka carries no CJK, so the browser falls through per character. The
+     script-specific Noto sits in the stack and i18n.js loads only the one the
+     active language needs; when English is active neither is downloaded and
+     this entry is simply skipped. */
+  --font-cjk: "Noto Sans TC";
+  --font-display: "Fredoka", "Arial Rounded MT Bold", var(--font-cjk), system-ui, sans-serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", var(--font-cjk), sans-serif;
 
   --digit-dur: 0.24s;
   --digit-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   color-scheme: light;
+}
+
+html[lang="zh-Hans"] {
+  --font-cjk: "Noto Sans SC";
 }
 
 [data-theme="dark"] {

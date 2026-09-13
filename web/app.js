@@ -5,7 +5,18 @@
 // the wire, so a click storm stays at 60fps and the server sees ~10 requests
 // per 100 clicks instead of 100.
 
-import { fillCount, initLang, isAutoDetected, lang, locale, localeForCountry, onLangChange, setLang, t } from './i18n.js';
+import {
+  fillCount,
+  initLang,
+  isAutoDetected,
+  lang,
+  locale,
+  localeForCountry,
+  nextLang,
+  onLangChange,
+  setLang,
+  t,
+} from './i18n.js';
 
 const CONFIG = window.TIBO_BEG_CONFIG || {};
 const API = String(CONFIG.API_BASE || '').replace(/\/+$/, '');
@@ -639,8 +650,10 @@ function initLanguage() {
   onLangChange(repaintDynamic);
   el.langFace.textContent = t('langToggleFace');
   setConnection('connecting');
+  // Three languages, so the chip cycles and shows the one currently active
+  // rather than the one it would switch to.
   document.getElementById('lang-toggle').addEventListener('click', () => {
-    setLang(lang() === 'zh-Hant' ? 'en' : 'zh-Hant', { remember: true });
+    setLang(nextLang(), { remember: true });
   });
 }
 

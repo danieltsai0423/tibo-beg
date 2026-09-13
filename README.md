@@ -23,21 +23,27 @@ npm run serve      # http://localhost:4173
 
 ## 語言
 
-**港澳台 → 繁體中文，其他地方 → English。** 判斷順序（先命中者勝）：
+**繁中（港澳台）／簡中／英文，自動判斷。** 判斷順序（先命中者勝）：
 
-1. 使用者自己按過右上角的 `中 / EN` 切換鈕（存 `localStorage`）
-2. 網址 `?lang=zh-Hant` / `?lang=en`
-3. `navigator.languages` 帶有繁中標籤（`zh-Hant` / `zh-TW` / `zh-HK` / `zh-MO`）
-4. Worker 從 edge 回報的 `viewer_country` ∈ `TW / HK / MO`
+1. 使用者自己按過右上角的語言鈕（存 `localStorage`）
+2. 網址 `?lang=zh-Hant` / `?lang=zh-Hans` / `?lang=en`
+3. `navigator.languages` —— **第一個中文標籤決定字體**：
+   `zh-Hant` / `zh-TW` / `zh-HK` / `zh-MO` → 繁中，其餘中文標籤（`zh`、`zh-CN`、
+   `zh-Hans`、`zh-SG`）→ 簡中。把 `zh-CN` 排在 `zh-TW` 前面的人會拿到簡中，
+   這是尊重他自己的排序。
+4. Worker 從 edge 回報的 `viewer_country`：`TW` / `HK` / `MO` → 繁中，`CN` → 簡中
 
 第 3 步是同步的，所以**第一次繪製就已經是對的語言**，不會先閃一下英文。
-第 4 步只在前三步都沒表態時才生效，且只看國碼、不看更細的位置。
+第 4 步只在前三步都沒表態時才生效，且只看國碼。
 
-`zh-CN` / `zh-SG` 目前走英文 —— 規格是「繁中地區用繁中，其他英文」。
-要加簡體只需在 `web/i18n.js` 的 `STRINGS` 多一組，判斷邏輯不用動。
+新加坡與馬來西亞**不在 geo 清單裡** —— 那兩地是多語社會，在那裡用英文瀏覽器的人
+多半就是要英文；當地的中文使用者第 3 步就已經接住了。
 
-字體：Fredoka 沒有中文字，瀏覽器會逐字 fallback，所以**只有切到中文時才會去載
-Noto Sans TC**，英文使用者不必付這個流量。
+語言鈕是循環的：`繁 → 简 → EN → 繁`，顯示的是**目前**的語言。
+
+字體：Fredoka 沒有中文字，瀏覽器會逐字 fallback。CSS 的 `--font-cjk` 依 `html[lang]`
+切換 Noto Sans TC / SC，而 `i18n.js` **只載入當下語言需要的那一套** ——
+英文使用者兩套都不會下載。
 
 每日發到 X 的那張卡（`board.html`）維持英文 —— 它的讀者是全球 X 使用者。
 

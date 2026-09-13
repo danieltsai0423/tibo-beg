@@ -26,9 +26,13 @@ Threads 登入 + 即時 beg 排行榜。靈感來源是 <https://codex-resets.co
 - **點擊要批次送。** 前端累積 100ms 或 10 次才發一個 POST，server 端 `MAX_PER_REQUEST`
   也是 10。兩邊要一起改，不然不是白擋就是白放。
 
-- **新增使用者可見的字串時，兩個語言都要加。** 字串表在 `web/i18n.js` 的 `STRINGS`，
-  英文那組是 fallback，缺 key 不會壞但會混語言。HTML 靜態文案用 `data-i18n` /
-  `data-i18n-html` / `data-i18n-aria` 標記，JS 產生的文案走 `t()`。
+- **新增使用者可見的字串時，三個語言都要加**（`en` / `zh-Hant` / `zh-Hans`）。
+  字串表在 `web/i18n.js` 的 `STRINGS`，英文那組是 fallback，缺 key 不會壞但會混語言。
+  HTML 靜態文案用 `data-i18n` / `data-i18n-html` / `data-i18n-aria` 標記，
+  JS 產生的文案走 `t()`。
+- **中文字體是 CSS 變數 `--font-cjk` 決定的**，不是靠載入 `<link>` 就會生效 ——
+  字體必須真的出現在 `--font-display` / `--font-body` 的 stack 裡。
+  `html[lang="zh-Hans"]` 把它換成 Noto Sans SC，`i18n.js` 只載當下需要的那一套。
 - **含數字的句子不要用字串拼接。** 中英文的數字位置不同（`{n} beggars` vs
   `{n} 人跪求中`），所以那類標籤走 `fillCount()`，它會依模板重建 DOM。
 - **切語言要重建 odometer。** `Intl.NumberFormat` 的分位符可能不同，直接 diff

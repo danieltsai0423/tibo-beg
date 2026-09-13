@@ -1,23 +1,33 @@
-// Two locales: Traditional Chinese for Taiwan / Hong Kong / Macau, English for
-// everyone else.
+// Three locales: Traditional Chinese (Taiwan / Hong Kong / Macau), Simplified
+// Chinese, and English for everyone else.
 //
 // Resolution order, first hit wins:
 //   1. an explicit choice the visitor made (localStorage)
-//   2. ?lang=zh-Hant / ?lang=en in the URL  -- handy for testing and sharing
-//   3. navigator.languages carrying a Traditional Chinese tag
-//   4. the viewer's country, which the API reports from the edge (TW/HK/MO)
+//   2. ?lang=zh-Hant / ?lang=zh-Hans / ?lang=en  -- for testing and sharing
+//   3. navigator.languages -- the FIRST Chinese tag decides the script, so a
+//      visitor who lists zh-CN ahead of zh-TW gets Simplified
+//   4. the viewer's country, which the API reports from the edge
 //
 // 3 is synchronous so the first paint is already correct. 4 arrives with the
 // first API response and only applies when the earlier signals said nothing,
 // so the usual case never shows a flash of the wrong language.
-//
-// Note on zh-Hans: a zh-CN / zh-SG visitor gets English, because the brief was
-// "Traditional Chinese for the zh-Hant regions, English elsewhere". Adding a
-// Simplified locale means a third entry in STRINGS, not a change to this logic.
 
 const STORE_KEY = 'tibo-beg.lang';
-const ZH_HANT_COUNTRIES = new Set(['TW', 'HK', 'MO']);
 const FALLBACK = 'en';
+
+// Geo is only consulted when the browser said nothing about Chinese, so this
+// list stays deliberately narrow. Singapore and Malaysia are left out: they are
+// multilingual, and someone there running an English browser most likely wants
+// English -- their Chinese-locale visitors are already caught a step earlier.
+const COUNTRY_LOCALE = new Map([
+  ['TW', 'zh-Hant'],
+  ['HK', 'zh-Hant'],
+  ['MO', 'zh-Hant'],
+  ['CN', 'zh-Hans'],
+]);
+
+// The order the toggle cycles through.
+const CYCLE = ['zh-Hant', 'zh-Hans', 'en'];
 
 // Rich entries are authored here, never built from user input, so setting them
 // as innerHTML is safe. Everything that touches a username stays textContent.
@@ -25,6 +35,7 @@ export const STRINGS = {
   en: {
     _htmlLang: 'en',
     _locale: 'en-US',
+    _font: null,
     docTitle: 'Beg Board — who begs hardest for a Codex reset',
     docDescription:
       'Sign in with Threads, hit the button, and find out who on earth begs hardest for a Codex limit reset.',
@@ -34,8 +45,8 @@ export const STRINGS = {
       'Unofficial. Fan-made. We beg <a href="https://x.com/thsottiaux" rel="noopener">@thsottiaux</a> for a Codex reset, and we keep score.',
 
     themeToggle: 'Toggle dark mode',
-    langToggle: 'Switch to Traditional Chinese',
-    langToggleFace: '中',
+    langToggle: 'Change language',
+    langToggleFace: 'EN',
 
     altarTitle: 'Total begs this cycle',
     connConnecting: 'connecting',
@@ -81,6 +92,7 @@ export const STRINGS = {
   'zh-Hant': {
     _htmlLang: 'zh-Hant',
     _locale: 'zh-Hant-TW',
+    _font: 'Noto+Sans+TC',
     docTitle: 'Beg Board — 誰最會跪求 Codex reset',
     docDescription: '用 Threads 登入、狂按按鈕，看看全世界誰最想要 Codex 額度重置。',
 
@@ -91,8 +103,8 @@ export const STRINGS = {
       '非官方，粉絲自製。我們替大家跪求 <a href="https://x.com/thsottiaux" rel="noopener">@thsottiaux</a> 重置 Codex 額度，順便記分。',
 
     themeToggle: '切換深色模式',
-    langToggle: 'Switch to English',
-    langToggleFace: 'EN',
+    langToggle: '切換語言',
+    langToggleFace: '繁',
 
     altarTitle: '本輪總跪求次數',
     connConnecting: '連線中',
@@ -134,6 +146,62 @@ export const STRINGS = {
     toastThrottled: '慢一點 —— 每秒最多算 8 次',
     toastDemo: '展示模式：資料不會離開這個瀏覽器',
   },
+
+  'zh-Hans': {
+    _htmlLang: 'zh-Hans',
+    _locale: 'zh-Hans-CN',
+    _font: 'Noto+Sans+SC',
+    docTitle: 'Beg Board — 谁最会跪求 Codex reset',
+    docDescription: '用 Threads 登录、狂点按钮，看看全世界谁最想要 Codex 额度重置。',
+
+    brand: 'Beg Board',
+    tagline:
+      '非官方，粉丝自制。我们替大家跪求 <a href="https://x.com/thsottiaux" rel="noopener">@thsottiaux</a> 重置 Codex 额度，顺便记分。',
+
+    themeToggle: '切换深色模式',
+    langToggle: '切换语言',
+    langToggleFace: '简',
+
+    altarTitle: '本轮总跪求次数',
+    connConnecting: '连接中',
+    connLive: '实时',
+    connOffline: '已离线',
+    pulseLabel: '全球每秒 {n} 次跪求',
+
+    begLabel: '跪求',
+    comboWarming: '热身中',
+    comboDevout: '虔诚',
+    comboFervent: '狂热',
+    comboUnhinged: '走火入魔',
+
+    helpSignedOut: '用 Threads 登录，你的跪求才会被计分。',
+    helpLive: '每秒最多计 8 次。超过的部分点起来一样爽，但分数不会动。',
+    helpDemo: '演示模式 —— 什么都不会发出。把 config.js 指向你的 Worker 才会真的上线。',
+
+    signIn: '用 Threads 登录',
+    signOut: '退出登录',
+
+    boardTitle: '排行榜',
+    boardLabel: '{n} 人跪求中 · 实时更新',
+    podiumAria: '跪求前三名',
+    boardAria: '第四名以后',
+    boardEmpty: '还没有人跪求。当第一个。',
+
+    notesTitle: '运作方式',
+    notes: [
+      '<strong>Threads 登录</strong>只会读你的账号名称与头像，不会保存你的任何 token。',
+      '<strong>点击有速率上限</strong>，每个账号每秒 8 次。连点器超过这条线也拿不到分，所以这里比的是耐力不是脚本。',
+      '这个排行榜每天会截图发到 X 一次，并 tag <a href="https://x.com/thsottiaux" rel="noopener">@thsottiaux</a>。他可以把我们静音。',
+      '与 OpenAI、Threads 或 <a href="https://codex-resets.com" rel="noopener">codex-resets.com</a> 均无关联 —— 后者的 beg 按钮是这一切的起点。',
+    ],
+
+    toastSignInFailed: '登录失败：{error}',
+    toastPassed: '第 {rank} 名 —— 超越 @{user}',
+    toastRank: '你现在是第 {rank} 名',
+    toastExpired: '登录状态已过期，请重新登录',
+    toastThrottled: '慢一点 —— 每秒最多算 8 次',
+    toastDemo: '演示模式：数据不会离开这个浏览器',
+  },
 };
 
 let current = FALLBACK;
@@ -159,14 +227,23 @@ function fromNavigator() {
   const tags = navigator.languages?.length ? navigator.languages : [navigator.language];
   for (const tag of tags) {
     const lower = String(tag || '').toLowerCase();
-    // zh-Hant, zh-TW, zh-HK, zh-MO, zh-Hant-HK all mean Traditional.
-    if (lower.startsWith('zh') && /hant|-tw|-hk|-mo/.test(lower)) return 'zh-Hant';
+    if (!lower.startsWith('zh')) continue;
+    // zh-Hant, zh-TW, zh-HK, zh-MO, zh-Hant-HK all mean Traditional. Every
+    // other Chinese tag -- zh, zh-CN, zh-Hans, zh-SG -- means Simplified.
+    // Returning on the first Chinese tag respects the visitor's own ordering.
+    return /hant|-tw|-hk|-mo/.test(lower) ? 'zh-Hant' : 'zh-Hans';
   }
   return null;
 }
 
 export function localeForCountry(country) {
-  return ZH_HANT_COUNTRIES.has(String(country || '').toUpperCase()) ? 'zh-Hant' : null;
+  return COUNTRY_LOCALE.get(String(country || '').toUpperCase()) || null;
+}
+
+/** The next language in the toggle's cycle. */
+export function nextLang() {
+  const index = CYCLE.indexOf(current);
+  return CYCLE[(index + 1) % CYCLE.length];
 }
 
 /** True when the visitor has not pinned a language, so geo may still decide. */
@@ -195,12 +272,14 @@ export function t(key, params) {
 // Fredoka has no CJK glyphs, so the browser falls through to the next family
 // per character. Loading Noto Sans TC only when it is needed keeps the English
 // page from paying for a font it will never draw.
-function ensureCjkFont() {
-  if (document.getElementById('cjk-font')) return;
+function ensureCjkFont(family) {
+  if (!family) return;
+  const id = `cjk-font-${family}`;
+  if (document.getElementById(id)) return;
   const link = document.createElement('link');
-  link.id = 'cjk-font';
+  link.id = id;
   link.rel = 'stylesheet';
-  link.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700&display=swap';
+  link.href = `https://fonts.googleapis.com/css2?family=${family}:wght@500;700&display=swap`;
   document.head.appendChild(link);
 }
 
@@ -225,7 +304,7 @@ function paint() {
   document.documentElement.lang = dict._htmlLang;
   document.title = dict.docTitle;
   document.querySelector('meta[name="description"]')?.setAttribute('content', dict.docDescription);
-  if (current !== 'en') ensureCjkFont();
+  ensureCjkFont(dict._font);
 
   for (const node of document.querySelectorAll('[data-i18n]')) {
     node.textContent = t(node.dataset.i18n);
