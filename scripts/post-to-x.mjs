@@ -9,6 +9,7 @@
 // Env: X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_SECRET
 //      API_BASE (optional, to fetch live numbers for the caption)
 //      MENTION   (default @thsottiaux)
+//      MIN_BEGGARS (default 3) -- below this the day is skipped entirely
 
 import { createHmac, randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -25,6 +26,32 @@ const dryRun = process.argv.includes('--dry-run');
 const imagePath = arg('image', 'out/board.png');
 const mention = process.env.MENTION || '@thsottiaux';
 const apiBase = String(process.env.API_BASE || '').replace(/\/+$/, '');
+const minBeggars = Number(process.env.MIN_BEGGARS ?? 3);
+
+/**
+ * An empty board is not worth a post. @-mentioning a real person daily with
+ * "0 begs from 0 people" is closer to pestering than to a tribute, so a thin
+ * day is skipped rather than sent. Exits 0: a skip is a normal outcome, not a
+ * build failure.
+ */
+async function shouldPost() {
+  if (!apiBase) return { ok: false, why: 'API_BASE is not set, so there are no real numbers to post' };
+  let data;
+  try {
+    const res = await fetch(`${apiBase}/api/leaderboard?limit=3`, { cache: 'no-store' });
+    if (!res.ok) return { ok: false, why: `leaderboard returned HTTP ${res.status}` };
+    data = await res.json();
+  } catch (err) {
+    return { ok: false, why: `leaderboard unreachable: ${err.message}` };
+  }
+  const beggars = Number(data?.beggars || 0);
+  const total = Number(data?.total || 0);
+  if (beggars < minBeggars) {
+    return { ok: false, why: `only ${beggars} beggar(s), need ${minBeggars}`, beggars, total };
+  }
+  if (total < 1) return { ok: false, why: 'nobody has begged yet', beggars, total };
+  return { ok: true, beggars, total };
+}
 
 const creds = {
   key: process.env.X_API_KEY,
@@ -80,7 +107,7 @@ async function caption() {
         const data = await res.json();
         const top = (data.board || [])
           .slice(0, 3)
-          .map((e, i) => `${['🥇', '🥈', '🥉'][i]} @${e.username} ${e.count.toLocaleString('en-US')}`)
+          .map((e, i) => `${['🥇', '🥈', '🥉'][i]} ${e.username} ${e.count.toLocaleString('en-US')}`)
           .join('  ');
         lines = [
           `Daily Beg Board — ${date}`,
@@ -129,12 +156,19 @@ async function createPost(text, mediaId) {
   return data;
 }
 
+const gate = await shouldPost();
 const text = await caption();
 
 if (dryRun) {
   console.log('--- dry run, nothing sent ---');
+  console.log(gate.ok ? `would post (${gate.beggars} beggars, ${gate.total} begs)` : `would SKIP: ${gate.why}`);
   console.log(text);
   console.log(`image: ${imagePath}`);
+  process.exit(0);
+}
+
+if (!gate.ok) {
+  console.log(`post-to-x: skipping today -- ${gate.why}`);
   process.exit(0);
 }
 

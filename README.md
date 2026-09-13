@@ -65,6 +65,15 @@ scripts/      Playwright 截圖 + X API v2 發文
 1. `npm run serve`，開 <http://localhost:4173>，按 **Sign in with Google** 進 demo 模式試玩。
 2. 要上線：照 [docs/DEPLOY.md](docs/DEPLOY.md) 走（Google OAuth → Worker → Pages → X 排程）。
 
+## 每日發文的兩道保險
+
+- **空榜不發。** 少於 `MIN_BEGGARS`（預設 3 人）就跳過當天並正常結束。
+  每天 @ 一個真人說「0 begs from 0 people」比較接近騷擾而不是致敬。
+  門檻可用 repo variable `MIN_BEGGARS` 調整。
+- **拿不到真資料就不發。** `board.html` 內建的示範資料**只在沒給 `api` 參數時**使用；
+  一旦指定了 API 卻讀取失敗，它會標記成錯誤狀態，`shot.mjs` 直接失敗（exit 1），
+  CI 中止。捏造的排行榜被當成真的發出去，比當天沒發文嚴重得多。
+
 ## 已知邊界
 
 - **點擊速率上限 8/秒/帳號**（Durable Object 裡的 token bucket）。沒有這條，排行榜量的是

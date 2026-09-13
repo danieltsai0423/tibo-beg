@@ -38,7 +38,19 @@ try {
     deviceScaleFactor: 2, // 2400x1350 -- comfortably above X's downscaling floor
   });
   await page.goto(target.toString(), { waitUntil: 'networkidle', timeout: 45_000 });
-  await page.waitForSelector('body[data-ready="1"]', { timeout: 20_000 });
+  // Either state resolves the wait, so a backend failure surfaces as a clear
+  // error here instead of a 20s timeout with no explanation.
+  await page.waitForSelector('body[data-ready]', { timeout: 20_000 });
+  const ready = await page.evaluate(() => ({
+    state: document.body.dataset.ready,
+    reason: document.body.dataset.error || '',
+  }));
+  if (ready.state !== '1') {
+    throw new Error(
+      `board card could not load real data (${ready.reason || ready.state}). ` +
+        'Refusing to screenshot -- posting placeholder numbers would be worse than posting nothing.',
+    );
+  }
   await page.waitForTimeout(400); // let avatars and the webfont settle
   await mkdir(dirname(out), { recursive: true });
   await page.screenshot({ path: out, clip: { x: 0, y: 0, width: 1200, height: 675 } });

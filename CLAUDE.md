@@ -50,6 +50,12 @@ Google 登入 + 即時 beg 排行榜。靈感來源是 <https://codex-resets.com
 - **切語言要重建 odometer。** `Intl.NumberFormat` 的分位符可能不同，直接 diff
   舊字元會錯亂 —— `repaintDynamic()` 先清空再重畫就是為此。
 
+- **`board.html` 的 sample 資料只能用在「沒給 `api` 參數」的預覽**。那張卡會被截圖公開
+  發到 X —— 讓假名字假分數在 API 掛掉時頂替真資料，比不發文糟糕得多。
+  失敗時它會設 `data-ready="error"`，`shot.mjs` 讀到就丟例外、CI 跟著失敗。
+- **第一位跪求者只記 uid 與時間，名字在讀取時才解析** —— 這樣對方改名後顯示會跟著更新。
+  它寫進 `meta` 且**永不覆寫**，因為那個瞬間錯過就補不回來。
+
 ## 驗證
 
 ```bash

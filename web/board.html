@@ -297,13 +297,28 @@
         ].map(([username, country, count], i) => ({ rank: i + 1, uid: `s${i}`, username, country, count, avatar: "" })),
       };
 
+      // The sample exists so the card can be previewed with no backend. It must
+      // NEVER stand in for a failed fetch: this page is screenshotted and posted
+      // publicly, and publishing invented names and scores as if they were real
+      // is far worse than posting nothing. A failure marks the page as errored
+      // and the screenshot step refuses to proceed.
+      function fail(reason) {
+        document.getElementById("total").textContent = "—";
+        document.getElementById("sub").textContent = `data unavailable: ${reason}`;
+        document.body.dataset.ready = "error";
+        document.body.dataset.error = reason;
+      }
+
       (async () => {
         if (!api) return render(sample);
         try {
           const res = await fetch(`${api}/api/leaderboard?limit=${limit}`, { cache: "no-store" });
-          render(res.ok ? await res.json() : sample);
-        } catch {
-          render(sample);
+          if (!res.ok) return fail(`HTTP ${res.status}`);
+          const data = await res.json();
+          if (!data || !Array.isArray(data.board)) return fail("malformed response");
+          render(data);
+        } catch (err) {
+          fail(String(err && err.message ? err.message : err));
         }
       })();
     </script>

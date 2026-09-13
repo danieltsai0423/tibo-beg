@@ -174,6 +174,19 @@ check('an empty name restores the provider name', r.status === 200 && r.body.dis
 r = await fetch(`${BASE}/api/name`, { method: 'POST', body: JSON.stringify({ name: 'nope' }) });
 check('renaming requires a session', r.status === 401);
 
+// 9c. The first beggar is recorded once and survives later begs by others.
+r = await fetch(`${BASE}/api/leaderboard`).then((x) => x.json());
+const first = r.first_beggar;
+check('a first beggar is on record', !!first?.uid && !!first?.at, JSON.stringify(first));
+
+await beg(bob, 3);
+const after = await fetch(`${BASE}/api/leaderboard`).then((x) => x.json());
+check(
+  'later begs do not overwrite who was first',
+  after.first_beggar?.uid === first.uid && after.first_beggar?.at === first.at,
+  JSON.stringify(after.first_beggar),
+);
+
 // 10. final board
 res = await fetch(`${BASE}/api/leaderboard?limit=5`);
 board = await res.json();

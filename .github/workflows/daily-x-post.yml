@@ -44,6 +44,7 @@ jobs:
           X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
           API_BASE: ${{ vars.API_BASE }}
           MENTION: ${{ vars.MENTION || '@thsottiaux' }}
+          MIN_BEGGARS: ${{ vars.MIN_BEGGARS || '3' }}
         run: node scripts/post-to-x.mjs --image out/board.png
 
       - name: Caption preview (dry run)
@@ -51,4 +52,5 @@ jobs:
         env:
           API_BASE: ${{ vars.API_BASE }}
           MENTION: ${{ vars.MENTION || '@thsottiaux' }}
+          MIN_BEGGARS: ${{ vars.MIN_BEGGARS || '3' }}
         run: node scripts/post-to-x.mjs --image out/board.png --dry-run
