@@ -7,6 +7,7 @@
 
 import {
   fillCount,
+  hasString,
   initLang,
   isAutoDetected,
   lang,
@@ -146,7 +147,12 @@ function readToken() {
   const fromHash = hash.get('token');
   const error = hash.get('error');
   if (fromHash || error) history.replaceState(null, '', location.pathname + location.search);
-  if (error) toast(t('toastSignInFailed', { error }), 'warn');
+  if (error) {
+    // Known failures get a message that says something useful; anything else
+    // still surfaces the raw code rather than being swallowed.
+    const key = `err_${error}`;
+    toast(hasString(key) ? t(key) : t('toastSignInFailed', { error }), 'warn');
+  }
   if (fromHash) {
     try {
       localStorage.setItem(TOKEN_KEY, fromHash);

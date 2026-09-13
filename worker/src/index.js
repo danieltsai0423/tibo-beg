@@ -121,6 +121,11 @@ async function bearer(req, env) {
 async function authStart(req, env) {
   const url = new URL(req.url);
   const back = safeRedirect(env, url.searchParams.get('redirect') || '');
+  // Without these the redirect would carry client_id=undefined and the visitor
+  // would land on a Meta error page with no idea what went wrong.
+  if (!env.THREADS_APP_ID || !env.THREADS_APP_SECRET) {
+    return Response.redirect(`${back}#error=threads_not_configured`, 302);
+  }
   const state = await sign(
     { r: back, n: crypto.randomUUID(), exp: Math.floor(Date.now() / 1000) + STATE_TTL },
     env.SESSION_SECRET,
