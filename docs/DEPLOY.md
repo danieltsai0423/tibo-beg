@@ -84,6 +84,8 @@ curl https://tibo-beg-api.<子網域>.workers.dev/api/leaderboard
 | `API_BASE` | `https://tibo-beg-api.<子網域>.workers.dev` |
 | `BOARD_URL` | `https://<user>.github.io/<repo>/board.html` |
 | `MENTION` | `@thsottiaux`（可省略，預設就是這個） |
+| `MIN_BEGGARS` | 少於這個人數就跳過當天不發（可省略，預設 `3`） |
+| `HASHTAGS` | 可省略，預設 `#Codex #OpenAI`。設成空字串就不加 |
 
 `deploy-pages.yml` 會在部署時用 `API_BASE` 覆寫 `web/config.js`，所以 repo 裡那份可以維持空字串
 （空字串＝demo 模式，本機打開就能玩）。
@@ -108,6 +110,30 @@ X 的免費層**已於 2026-02-06 取消**，改成 pay-per-use：發一則貼�
 3. 產生 **API Key / Secret** 與 **Access Token / Secret**（產完 token 後若再改權限，token 要重新產）。
 4. GitHub → Settings → Secrets and variables → Actions → **Secrets**：
    `X_API_KEY`、`X_API_SECRET`、`X_ACCESS_TOKEN`、`X_ACCESS_SECRET`。
+
+### 貼文格式
+
+全英文，四行，圖片附在貼文上：
+
+```
+128,430 begs for a Codex reset so far.
+🥇 ratelimited 21,044 · 🥈 tokenburner 18,320 · 🥉 ctx_window 15,877
+12 people begging, 2026-09-14. @thsottiaux — the people have spoken 🙏
+#Codex #OpenAI
+```
+
+三個刻意的決定：
+
+- **@提及放結尾，不放開頭。** 以 `@某人` 開頭的貼文會被當成回覆，只有同時追蹤
+  雙方的人看得到 —— 那等於自廢觸及。
+- **只放兩個 hashtag。** 2026-09 查證：1–2 個約 +21% 互動，3 個以上 −17%，
+  5 個以上 −40%。腳本會強制上限為 2，超過會警告並截掉。
+- **貼文內不放連結。** 含連結的貼文每則 **$0.20**（不含連結是 $0.015，13 倍），
+  而且 X 會降低含連結貼文的觸及。網址改印在**圖片**的左下角，由 `board.html`
+  依自己被服務的位置推導出來。
+
+太長時會**從中間**捨棄（先丟前三名那行），@提及與 hashtag 永遠保留 ——
+它們才是這則貼文的重點。
 
 ### 先試跑
 

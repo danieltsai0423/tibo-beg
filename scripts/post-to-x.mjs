@@ -97,33 +97,63 @@ function authHeader(method, url) {
 
 // ------------------------------------------------------------------- caption
 
+const MAX_CHARS = 280;
+const NEWLINE = String.fromCharCode(10);
+
+// 1-2 hashtags measurably help; 3+ measurably hurt, and a wall of them reads as
+// spam next to a daily @-mention of a real person. Overridable, but capped.
+const MAX_HASHTAGS = 2;
+
+function hashtags() {
+  const raw = (process.env.HASHTAGS ?? '#Codex #OpenAI').trim();
+  if (!raw) return '';
+  const tags = raw.split(/\s+/).filter(Boolean).map((tag) => (tag.startsWith('#') ? tag : `#${tag}`));
+  if (tags.length > MAX_HASHTAGS) {
+    console.warn(
+      `post-to-x: ${tags.length} hashtags given, keeping the first ${MAX_HASHTAGS} — ` +
+        'more than two reduces reach rather than increasing it.',
+    );
+  }
+  return tags.slice(0, MAX_HASHTAGS).join(' ');
+}
+
+async function board() {
+  if (!apiBase) return null;
+  try {
+    const res = await fetch(`${apiBase}/api/leaderboard?limit=3`, { cache: 'no-store' });
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  }
+}
+
 async function caption() {
   const date = new Date().toISOString().slice(0, 10);
-  let lines = [`Daily Beg Board — ${date}`];
-  if (apiBase) {
-    try {
-      const res = await fetch(`${apiBase}/api/leaderboard?limit=3`, { cache: 'no-store' });
-      if (res.ok) {
-        const data = await res.json();
-        const top = (data.board || [])
-          .slice(0, 3)
-          .map((e, i) => `${['🥇', '🥈', '🥉'][i]} ${e.username} ${e.count.toLocaleString('en-US')}`)
-          .join('  ');
-        lines = [
-          `Daily Beg Board — ${date}`,
-          `${Number(data.total || 0).toLocaleString('en-US')} begs from ${Number(
-            data.beggars || 0,
-          ).toLocaleString('en-US')} people.`,
-          top,
-        ].filter(Boolean);
-      }
-    } catch {
-      /* caption falls back to the date-only version */
-    }
-  }
-  lines.push(`${mention} the people have spoken 🙏`);
-  const text = lines.join('\n');
-  return text.length > 275 ? `${text.slice(0, 272)}...` : text;
+  const data = await board();
+  const n = (value) => Number(value || 0).toLocaleString('en-US');
+
+  const podium = (data?.board || [])
+    .slice(0, 3)
+    .map((entry, i) => `${['🥇', '🥈', '🥉'][i]} ${entry.username} ${n(entry.count)}`)
+    .join(' · ');
+
+  // The mention is deliberately NOT first: a post that begins with @name is
+  // treated as a reply and only reaches people who follow both accounts.
+  const hook = data ? `${n(data.total)} begs for a Codex reset so far.` : `Beg Board — ${date}`;
+  const people = data ? `${n(data.beggars)} people begging, ${date}.` : '';
+  const tail = `${people} ${mention} — the people have spoken 🙏`.trim();
+  const tags = hashtags();
+
+  // Assemble from the tail backwards: the mention and the hashtags are the point
+  // of the post, so anything dropped for length is dropped from the middle.
+  const required = [hook, tail, tags].filter(Boolean).join(NEWLINE);
+  const withPodium = [hook, podium, tail, tags].filter(Boolean).join(NEWLINE);
+
+  if (withPodium.length <= MAX_CHARS) return withPodium;
+  if (required.length <= MAX_CHARS) return required;
+  // Only the hook can still be too long, and only absurdly so; trim that alone.
+  const room = MAX_CHARS - (required.length - hook.length) - 1;
+  return [hook.slice(0, Math.max(0, room)), tail, tags].filter(Boolean).join(NEWLINE);
 }
 
 // ---------------------------------------------------------------------- post

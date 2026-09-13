@@ -240,7 +240,14 @@
           `${nf.format(data.beggars || (data.board || []).length)} beggars · ${new Date(
             data.generated_at || Date.now(),
           ).toUTCString().slice(0, 16)}`;
-        document.getElementById("stamp-left").textContent = api ? new URL(api).host : "demo data";
+        // The card is the only place the address appears: a link in the post
+        // itself costs 13x more to send and gets downranked, so the image
+        // carries it instead. board.html is served from the site, so it can
+        // work out its own address.
+        const dir = location.pathname.replace(/[^/]*$/, "").replace(/\/$/, "");
+        document.getElementById("stamp-left").textContent = api
+          ? `${location.host}${dir}`
+          : "demo data";
 
         const board = (data.board || []).slice(0, limit);
         const podium = document.getElementById("podium");
