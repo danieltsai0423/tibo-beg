@@ -255,7 +255,7 @@
           crown.textContent = ["👑", "🥈", "🥉"][i];
           const name = document.createElement("span");
           name.className = "name";
-          name.textContent = `@${entry.username} ${flag(entry.country)}`;
+          name.textContent = `${entry.username} ${flag(entry.country)}`;
           const score = document.createElement("span");
           score.className = "score";
           score.textContent = nf.format(entry.count);
@@ -270,7 +270,7 @@
           rank.textContent = `#${entry.rank}`;
           const name = document.createElement("span");
           name.className = "name";
-          name.textContent = `@${entry.username} ${flag(entry.country)}`;
+          name.textContent = `${entry.username} ${flag(entry.country)}`;
           const score = document.createElement("span");
           score.className = "score";
           score.textContent = nf.format(entry.count);

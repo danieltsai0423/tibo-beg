@@ -73,6 +73,10 @@ scripts/      Playwright 截圖 + X API v2 發文
   之後靠自簽的 session token（HMAC-SHA256，30 天）認人。scope 只要 `openid profile`，
   **沒有要 email**，所以也不存在洩漏 email 的可能。
 - **使用者 id 有 provider 前綴**（`google:<sub>`）。未來要加第二家登入不會撞號。
+- **顯示名稱可改，但是選填。** 預設就是 Google 名稱；點右上角自己的頭像可以改成別的。
+  規則：2–20 字、不分大小寫與空白的唯一性、保留字（擋冒充 @thsottiaux）、
+  隱形字元一律剝除。**剝除發生在唯一性檢查之前** —— 順序反過來就能用零寬空格
+  偽裝成別人。改名只影響排行榜顯示，不動認證身分，所以永遠不會把人鎖在門外。
 - **每日發文是 @ 真人**。頻率請維持一天一次；要停就把 `.github/workflows/daily-x-post.yml`
   的 `schedule` 拿掉。
 - 與 OpenAI、Google、codex-resets.com 均無關聯。

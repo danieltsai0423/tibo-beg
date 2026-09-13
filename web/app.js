@@ -180,16 +180,24 @@ function signOut() {
 function renderAuth() {
   el.auth.textContent = '';
   if (state.me) {
-    const wrap = document.createElement('div');
+    const wrap = document.createElement('button');
     wrap.className = 'auth-user';
+    wrap.type = 'button';
+    wrap.setAttribute('aria-label', t('nameEdit'));
+    wrap.title = t('nameEdit');
     const img = document.createElement('img');
     img.className = 'avatar';
     img.alt = '';
     img.referrerPolicy = 'no-referrer';
     if (state.me.avatar) img.src = state.me.avatar;
     const name = document.createElement('span');
-    name.textContent = `@${state.me.username}`;
-    wrap.append(img, name);
+    name.textContent = state.me.username;
+    const pencil = document.createElement('span');
+    pencil.className = 'auth-pencil';
+    pencil.setAttribute('aria-hidden', 'true');
+    pencil.textContent = '✎';
+    wrap.append(img, name, pencil);
+    wrap.addEventListener('click', openNameEditor);
 
     const out = document.createElement('button');
     out.className = 'chip';
@@ -234,6 +242,114 @@ function googleMark() {
   tile.setAttribute('aria-hidden', 'true');
   tile.innerHTML = GOOGLE_G;
   return tile;
+}
+
+// ------------------------------------------------------------- display name
+
+// Optional by design: the Google name is the default, and this only overrides
+// what the leaderboard shows. Nothing here touches the identity we authenticate
+// with, so a rename can never lock anyone out of their own score.
+function closeNameEditor() {
+  document.querySelector('.name-pop')?.remove();
+  document.removeEventListener('keydown', onNameKey);
+  document.removeEventListener('pointerdown', onNameOutside, true);
+}
+
+function onNameKey(event) {
+  if (event.key === 'Escape') closeNameEditor();
+}
+
+function onNameOutside(event) {
+  const pop = document.querySelector('.name-pop');
+  if (pop && !pop.contains(event.target) && !event.target.closest('.auth-user')) closeNameEditor();
+}
+
+async function submitName(value) {
+  const name = value.trim();
+  if (DEMO) {
+    const me = demo.users.find((u) => u.uid === state.me.uid);
+    if (me) me.username = name || 'you';
+    state.me.username = name || 'you';
+    state.me.display_name = name || null;
+    renderAuth();
+    demoRender();
+    toast(name ? t('nameSaved', { name }) : t('nameReset'));
+    return;
+  }
+  try {
+    const res = await fetch(`${API}/api/name`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${state.token}` },
+      body: JSON.stringify({ name: name || null }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      const key = `err_${data?.error}`;
+      toast(hasString(key) ? t(key) : t('err_name_invalid'), 'warn');
+      return;
+    }
+    state.me.display_name = data.display_name;
+    state.me.username = data.name;
+    renderAuth();
+    poll(); // pull the board back in step straight away
+    toast(data.display_name ? t('nameSaved', { name: data.name }) : t('nameReset'));
+  } catch {
+    toast(t('err_name_invalid'), 'warn');
+  }
+}
+
+function openNameEditor() {
+  if (document.querySelector('.name-pop')) {
+    closeNameEditor();
+    return;
+  }
+  const pop = document.createElement('div');
+  pop.className = 'name-pop';
+
+  const title = document.createElement('p');
+  title.className = 'name-pop-title';
+  title.textContent = t('nameTitle');
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.maxLength = 20;
+  input.placeholder = state.me.provider_name || t('namePlaceholder');
+  input.value = state.me.display_name || '';
+  input.setAttribute('aria-label', t('nameTitle'));
+
+  const hint = document.createElement('p');
+  hint.className = 'name-pop-hint';
+  hint.textContent = t('nameHint');
+
+  const row = document.createElement('div');
+  row.className = 'name-pop-row';
+  const save = document.createElement('button');
+  save.className = 'chip';
+  save.type = 'button';
+  save.textContent = t('nameSave');
+  const cancel = document.createElement('button');
+  cancel.className = 'chip';
+  cancel.type = 'button';
+  cancel.textContent = t('nameCancel');
+  row.append(save, cancel);
+
+  const commit = () => {
+    const value = input.value;
+    closeNameEditor();
+    submitName(value);
+  };
+  save.addEventListener('click', commit);
+  cancel.addEventListener('click', closeNameEditor);
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') commit();
+  });
+
+  pop.append(title, input, hint, row);
+  el.auth.appendChild(pop);
+  input.focus();
+  input.select();
+  document.addEventListener('keydown', onNameKey);
+  document.addEventListener('pointerdown', onNameOutside, true);
 }
 
 async function loadMe() {
@@ -336,7 +452,7 @@ function renderBoard() {
     if (entry.avatar) img.src = entry.avatar;
     const name = document.createElement('span');
     name.className = 'name';
-    name.textContent = `@${entry.username}${flagOf(entry.country) ? ` ${flagOf(entry.country)}` : ''}`;
+    name.textContent = `${entry.username}${flagOf(entry.country) ? ` ${flagOf(entry.country)}` : ''}`;
     const score = document.createElement('span');
     score.className = 'score';
     score.textContent = nf.format(entry.count);
@@ -366,7 +482,7 @@ function renderBoard() {
     if (entry.avatar) img.src = entry.avatar;
     const name = document.createElement('span');
     name.className = 'name';
-    name.textContent = `@${entry.username}`;
+    name.textContent = entry.username;
     const flag = flagOf(entry.country);
     if (flag) {
       const span = document.createElement('span');
@@ -639,7 +755,14 @@ function demoCredit(n) {
 }
 
 function demoSignIn() {
-  state.me = { uid: 'demo-you', username: 'you', avatar: demoAvatar(11), country: 'TW' };
+  state.me = {
+    uid: 'demo-you',
+    username: 'you',
+    provider_name: 'you',
+    display_name: null,
+    avatar: demoAvatar(11),
+    country: 'TW',
+  };
   demo.users.push({ ...state.me, count: 0 });
   state.token = 'demo';
   renderAuth();

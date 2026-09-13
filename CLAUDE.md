@@ -20,6 +20,12 @@ Google 登入 + 即時 beg 排行榜。靈感來源是 <https://codex-resets.com
   而我們根本不需要 email —— 公開排行榜上也絕不能顯示它。
 - **`uid` 有 provider 前綴**（`google:<sub>`）。要加第二家登入時沿用這個慣例，
   不同平台的 id 直接當 key 會有撞號風險。
+- **改名的驗證順序不能調換**：先正規化剝掉隱形字元，**再**做唯一性比對。
+  反過來的話，`Rate​Limited` 會被當成跟 `RateLimited` 不同的名字而通過。
+- **`/beg` 不可以覆寫 `dn`。** session token 裡的 `un` 是 provider 給的名字，
+  每次跪求都會帶上來；使用者自選的 `dn` 是另一個欄位，只有 `/name` 能動它。
+- **唯一性檢查放在 Durable Object 裡**，因為它要一次看到所有人的名字 ——
+  而那正好是 DO 的記憶體內容，不需要額外索引。放進 router 就做不到了。
 
 - **排序快取會讓 rank 變成 `null`。** `BegRoom` 的 `sorted` 是延遲重算的；`rankOf()`
   刻意不用它，改用 O(n) 直接數，因為前端的超車動畫吃這個數字，晚 200ms 就會閃錯名次。

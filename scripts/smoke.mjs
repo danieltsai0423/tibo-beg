@@ -116,6 +116,64 @@ check(
   JSON.stringify(ticks.at(-1)?.board?.slice(0, 2) || []),
 );
 
+// 9b. Display names: optional, unique, and never clobbered by a later beg.
+const nameReq = async (token, name) => {
+  const r = await fetch(`${BASE}/api/name`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+    body: JSON.stringify({ name }),
+  });
+  return { status: r.status, body: await r.json().catch(() => null) };
+};
+
+const pick = `Rate Limited ${run}`;
+let r = await nameReq(alice, pick);
+check('a display name can be set', r.status === 200 && r.body.display_name === pick, JSON.stringify(r.body));
+
+r = await fetch(`${BASE}/api/me`, { headers: { authorization: `Bearer ${alice}` } }).then((x) => x.json());
+check('/api/me reports the chosen name', r.username === pick && r.provider_name === 'alice', JSON.stringify(r));
+
+await beg(alice, 1);
+r = await fetch(`${BASE}/api/me`, { headers: { authorization: `Bearer ${alice}` } }).then((x) => x.json());
+check('begging does not clobber the chosen name', r.username === pick, JSON.stringify(r));
+
+r = await nameReq(bob, pick.toLowerCase().replace(/\s/g, ''));
+check('uniqueness ignores case and spacing', r.status === 409 && r.body.error === 'name_taken', JSON.stringify(r.body));
+
+r = await nameReq(bob, 'thsottiaux');
+check('impersonating Tibo is refused', r.status === 409 && r.body.error === 'name_reserved', JSON.stringify(r.body));
+
+r = await nameReq(bob, 'x');
+check('too-short name is refused', r.status === 400 && r.body.error === 'name_invalid', JSON.stringify(r.body));
+
+r = await nameReq(bob, 'a'.repeat(21));
+check('too-long name is refused', r.status === 400 && r.body.error === 'name_invalid', JSON.stringify(r.body));
+
+// A zero-width space is the classic way to smuggle a look-alike name past a
+// uniqueness check. Stripping happens first, so it collides and is refused --
+// the two defences only work because they run in that order.
+r = await nameReq(bob, `Rate​ Limited ${run}`);
+check(
+  'invisible characters cannot smuggle a duplicate name through',
+  r.status === 409 && r.body.error === 'name_taken',
+  JSON.stringify(r.body),
+);
+
+// The same stripping applies to a name that is not a duplicate: accepted, but
+// stored clean rather than verbatim.
+r = await nameReq(bob, `Yak​Shaver ${run}`);
+check(
+  'invisible characters are stripped from an accepted name',
+  r.status === 200 && !/​/.test(r.body.display_name || '') && r.body.display_name === `YakShaver ${run}`,
+  JSON.stringify(r.body),
+);
+
+r = await nameReq(bob, '');
+check('an empty name restores the provider name', r.status === 200 && r.body.display_name === null, JSON.stringify(r.body));
+
+r = await fetch(`${BASE}/api/name`, { method: 'POST', body: JSON.stringify({ name: 'nope' }) });
+check('renaming requires a session', r.status === 401);
+
 // 10. final board
 res = await fetch(`${BASE}/api/leaderboard?limit=5`);
 board = await res.json();

@@ -210,7 +210,39 @@ export default {
     if (path === '/api/me') {
       const session = await bearer(req, env);
       if (!session) return json(req, env, { error: 'unauthorized' }, 401);
-      return json(req, env, { uid: session.uid, username: session.un, avatar: session.av, country: session.cc });
+      // The chosen name lives in the Durable Object, not in the token, so that
+      // renaming takes effect without forcing a re-login.
+      const stored = await room(env)
+        .fetch(`https://room/profile?uid=${encodeURIComponent(session.uid)}`)
+        .then((r) => r.json())
+        .catch(() => null);
+      return json(req, env, {
+        uid: session.uid,
+        username: stored?.display_name || session.un,
+        provider_name: session.un,
+        display_name: stored?.display_name || null,
+        avatar: session.av,
+        country: session.cc,
+      });
+    }
+
+    if (path === '/api/name' && req.method === 'POST') {
+      const session = await bearer(req, env);
+      if (!session) return json(req, env, { error: 'unauthorized' }, 401);
+      const payload = await req.json().catch(() => ({}));
+      const res = await room(env).fetch('https://room/name', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          uid: session.uid,
+          un: session.un,
+          av: session.av,
+          cc: session.cc,
+          name: payload?.name ?? null,
+        }),
+      });
+      const body = await res.json().catch(() => null);
+      return json(req, env, body ?? { error: 'upstream' }, res.status);
     }
 
     if (path === '/api/live') {

@@ -219,12 +219,16 @@ main,
 }
 
 .auth {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
 .auth-user {
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.08s ease, box-shadow 0.08s ease;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -235,6 +239,99 @@ main,
   padding: 5px 12px 5px 5px;
   font-weight: 600;
   font-family: var(--font-display);
+}
+
+.auth-user:hover {
+  background: var(--gold);
+}
+
+.auth-user:active {
+  transform: translate(3px, 3px);
+  box-shadow: 0 0 0 var(--shadow-col);
+}
+
+.auth-pencil {
+  font-size: 12px;
+  opacity: 0.55;
+}
+
+/* ---------------------------------------------------------- name editor */
+
+.name-pop {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 30;
+  width: min(280px, calc(100vw - 32px));
+  background: var(--card);
+  border: var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px;
+  display: grid;
+  gap: 8px;
+  animation: pop-in 0.16s var(--digit-ease);
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+}
+
+.name-pop-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.name-pop input {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--paper);
+  border: var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+.name-pop input:focus-visible {
+  outline: 3px solid var(--violet);
+  outline-offset: 1px;
+}
+
+.name-pop-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.name-pop-row {
+  display: flex;
+  gap: 8px;
+}
+
+.name-pop-row .chip {
+  flex: 1;
+  justify-content: center;
+  padding: 7px 10px;
+}
+
+.name-pop-row .chip:first-child {
+  background: var(--violet);
+  color: var(--on-accent);
+}
+
+.name-pop-row .chip:first-child:hover {
+  background: var(--magenta);
 }
 
 .avatar {
