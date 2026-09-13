@@ -26,6 +26,17 @@ const TOKEN_KEY = 'tibo-beg.token';
 const THEME_KEY = 'tibo-beg.theme';
 
 const FLUSH_MS = 100;
+// Backing off is not politeness, it is the difference between the site working
+// and not. The batching window is time-driven, so sustained clicking sends ten
+// requests a second no matter how fast the clicks arrive -- and the free plan
+// allows 100,000 requests a day across the whole site. One phone left
+// auto-tapping overnight would spend that in under three hours and take the
+// leaderboard down with it, for everyone, until the quota resets.
+//
+// The server credits at most 8 begs a second, so past roughly one request a
+// second every extra request is refused anyway. When a response says begs were
+// thrown away, the cadence doubles; when they are all credited, it halves back.
+const FLUSH_MS_MAX = 1600;
 const FLUSH_AT = 10; // matches the server's per-request cap
 const COMBO_DECAY_MS = 1200;
 const BPS_FULL = 40; // begs/sec that fills the pulse bar
@@ -72,6 +83,7 @@ const state = {
   pending: 0,
   requestId: null,
   flushTimer: null,
+  flushMs: FLUSH_MS,
   mine: new Set(), // request ids we already painted locally
   combo: 0,
   comboTimer: null,
@@ -429,6 +441,9 @@ function bumpCombo() {
     el.altar.dataset.combo = '0';
     el.begEmoji.textContent = '🙏';
     el.combo.hidden = true;
+    // The storm is over, so the next click should feel instant again rather
+    // than inherit a backoff earned by the previous one.
+    state.flushMs = FLUSH_MS;
   }, COMBO_DECAY_MS);
   return tier;
 }
@@ -675,7 +690,11 @@ function connect() {
 async function flush() {
   clearTimeout(state.flushTimer);
   state.flushTimer = null;
-  const n = state.pending;
+  // Clamped because a backed-off window can queue more than one request may
+  // carry. The server clamps to the same number, and the overflow is made of
+  // begs it was going to refuse anyway -- the next response corrects the
+  // optimistic counter.
+  const n = Math.min(state.pending, FLUSH_AT);
   const requestId = state.requestId;
   state.pending = 0;
   state.requestId = null;
@@ -704,7 +723,12 @@ async function flush() {
     odometer(el.total, state.total);
     odometer(el.begCount, state.myCount);
     noteRank(data.rank);
-    if (data.throttled > 0 && state.combo > 20) toast(t('toastThrottled'), 'warn');
+    if (data.throttled > 0) {
+      state.flushMs = Math.min(FLUSH_MS_MAX, state.flushMs * 2);
+      if (state.combo > 20) toast(t('toastThrottled'), 'warn');
+    } else if (state.flushMs > FLUSH_MS) {
+      state.flushMs = Math.max(FLUSH_MS, Math.round(state.flushMs / 2));
+    }
   } catch {
     /* dropped begs are not worth a retry queue */
   }
@@ -739,11 +763,14 @@ function onBeg() {
     state.mine.add(id);
     setTimeout(() => state.mine.delete(id), 30000);
   }
-  if (state.pending >= FLUSH_AT) {
+  // The early flush only applies at the idle cadence. Once backed off, the
+  // timer alone decides when to send -- otherwise a fast enough tap rate would
+  // keep hitting this path and put the request rate straight back where it was.
+  if (state.pending >= FLUSH_AT && state.flushMs === FLUSH_MS) {
     flush();
     return;
   }
-  if (!state.flushTimer) state.flushTimer = setTimeout(flush, FLUSH_MS);
+  if (!state.flushTimer) state.flushTimer = setTimeout(flush, state.flushMs);
 }
 
 // -------------------------------------------------------------- demo driver
